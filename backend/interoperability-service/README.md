@@ -5,15 +5,15 @@ The Interoperability Service is the core backend component for MahaSetu (SIH 202
 
 This guarantees that the MahaSetu frontend always receives clean, predictable JSON regardless of how messy the external legacy system is.
 
-## 🏗️ Architecture & Data Flow
+## 🏗️ Architecture & Data Flow (Phases 1 & 3)
 
 When a request is sent to fetch data for a citizen (e.g., `MH1001`), the following flow executes:
 
 1. **Client Request:** The frontend makes a request to `VerificationController.java` at `/api/v1/interop/fetch/{system}/{citizenId}`.
 2. **Dynamic Routing:** The controller passes the request to the `ConnectorRegistry.java`.
-3. **Data Fetching:** The registry identifies the correct system (e.g., `EMPLOYMENT_SYSTEM_REST_CONNECTOR`) and delegates the task to `RestConnector.java`. The connector executes an HTTP request to the external government mock server.
-4. **Raw Wrapping:** The mock server responds with raw JSON. The `RestConnector` deliberately avoids parsing this, instead returning it inside a `RawExternalResponse`.
-5. **Transformation:** The registry grabs the `RawExternalResponse` and passes it to the `EmploymentTransformer.java`. The transformer parses the raw JSON using Jackson and maps it exactly to the `CanonicalCitizenData` standard.
+3. **Data Fetching:** The registry identifies the correct system (e.g., `HEALTH_SYSTEM_CONNECTOR`) and delegates the task to the specific protocol connector (`RestConnector`, `SoapConnector`, or `CsvConnector`). 
+4. **Raw Wrapping:** The mock server responds with raw data (JSON, XML, or CSV). The connector deliberately avoids parsing this, instead returning it inside a `RawExternalResponse`.
+5. **Transformation:** The registry grabs the `RawExternalResponse` and passes it to the corresponding department transformer (e.g., `HealthTransformer.java`). The transformer parses the raw string using JSON, Regex/XML, or CSV splitting and maps it exactly to the `CanonicalCitizenData` standard.
 6. **Unified Response:** The standardized `CanonicalCitizenData` object is returned to the controller, and ultimately back to the frontend.
 
 ---
@@ -28,12 +28,15 @@ When a request is sent to fetch data for a citizen (e.g., `MH1001`), the followi
 
 ### `connector/`
 * **`GovernmentSystemConnector.java`**: An interface abstracting all system connectors. Ensures our architecture conforms to the Dependency Inversion Principle.
-* **`RestConnector.java`**: Implements the above interface specifically for modern REST APIs. Currently hardcoded to target our mock employment system on port 8091.
-* **`SoapConnector.java` & `CsvConnector.java`**: Placeholders for Phase 2 integration of legacy SOAP protocols and SFTP CSV drops.
+* **`RestConnector.java`**: Fetches standard JSON REST payloads (Used for the Employment System).
+* **`SoapConnector.java`**: Fetches legacy SOAP/XML payloads (Used for the Health System).
+* **`CsvConnector.java`**: Fetches raw CSV text dumps (Used for the Education System).
 
 ### `transformer/`
 * **`DataTransformer.java`**: An interface abstracting the data mapping logic.
-* **`EmploymentTransformer.java`**: Parses the messy Employment JSON (e.g., `cit_id`, `emp_status`) into clean Java fields (`citizenId`, `employmentStatus`).
+* **`EmploymentTransformer.java`**: Parses the messy Employment JSON (e.g., `cit_id`, `emp_status`) into clean Java fields.
+* **`HealthTransformer.java`**: Uses Regex/XML parsing to extract fields from ancient `<soapenv:Envelope>` SOAP responses.
+* **`EducationTransformer.java`**: Uses string splitting to extract rows and columns from raw comma-separated CSV dumps.
 
 ### `model/`
 * **`CanonicalCitizenData.java`**: The single source of truth schema.

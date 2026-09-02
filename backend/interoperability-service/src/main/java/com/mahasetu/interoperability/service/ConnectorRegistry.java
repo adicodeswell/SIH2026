@@ -24,10 +24,9 @@ public class ConnectorRegistry {
     }
 
     public CanonicalCitizenData fetchData(ExternalSystem system, String citizenId) {
-        // Find the right connector and transformer for the system
         String systemName = system.name();
         
-        GovernmentSystemConnector connector = connectors.get(systemName + "_REST_CONNECTOR");
+        GovernmentSystemConnector connector = connectors.get(systemName + "_CONNECTOR");
         if (connector == null) {
             throw new IllegalArgumentException("No connector found for system: " + systemName);
         }
@@ -37,10 +36,7 @@ public class ConnectorRegistry {
             throw new IllegalArgumentException("No transformer found for system: " + systemName);
         }
 
-        // 1. Fetch raw data
         RawExternalResponse rawData = connector.fetch(citizenId, system);
-        
-        // 2. Transform to Canonical Model
         return transformer.transform(rawData);
     }
 }

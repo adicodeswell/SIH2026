@@ -9,7 +9,7 @@ import org.springframework.web.reactive.function.client.WebClient;
  * Adapter for modern external government systems that communicate via REST/JSON.
  * For Phase 1, this connects to the Employment Mock System.
  */
-@Component("EMPLOYMENT_SYSTEM_REST_CONNECTOR")
+@Component("EMPLOYMENT_SYSTEM_CONNECTOR")
 public class RestConnector implements GovernmentSystemConnector {
 
     private final WebClient webClient;
