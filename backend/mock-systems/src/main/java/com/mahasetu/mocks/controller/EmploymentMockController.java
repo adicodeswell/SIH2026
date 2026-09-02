@@ -1,0 +1,39 @@
+package com.mahasetu.mocks.controller;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Simulates a modern(ish) JSON REST API from the Employment Department.
+ */
+@RestController
+@RequestMapping("/employment")
+public class EmploymentMockController {
+
+    @GetMapping("/{citizenId}")
+    public Map<String, Object> getEmploymentData(@PathVariable String citizenId) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("cit_id", citizenId);
+        
+        // Mocking data based on citizen ID
+        if (citizenId.equals("MH1001")) {
+            response.put("full_name", "Aditya Sharma");
+            response.put("dob", "2000-01-01");
+            response.put("emp_status", "EMPLOYED");
+            response.put("highest_degree", "B.Tech");
+            response.put("grad_year", 2022);
+        } else {
+            response.put("full_name", "Unknown Citizen");
+            response.put("dob", "1990-01-01");
+            response.put("emp_status", "UNEMPLOYED");
+            response.put("highest_degree", "None");
+            response.put("grad_year", 0);
+        }
+        return response;
+    }
+}
