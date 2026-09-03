@@ -5,10 +5,14 @@ import com.mahasetu.interoperability.model.CanonicalCitizenData;
 import com.mahasetu.interoperability.model.ExternalSystem;
 import com.mahasetu.interoperability.model.RawExternalResponse;
 import com.mahasetu.interoperability.transformer.DataTransformer;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 public class ConnectorRegistry {
@@ -23,6 +27,8 @@ public class ConnectorRegistry {
         this.transformers = transformers;
     }
 
+    @Cacheable(value = "citizenData", key = "#system.name() + '_' + #citizenId")
+    @CircuitBreaker(name = "externalService", fallbackMethod = "fetchDataFallback")
     public CanonicalCitizenData fetchData(ExternalSystem system, String citizenId) {
         String systemName = system.name();
         
@@ -38,5 +44,17 @@ public class ConnectorRegistry {
 
         RawExternalResponse rawData = connector.fetch(citizenId, system);
         return transformer.transform(rawData);
+    }
+
+    public CanonicalCitizenData fetchDataFallback(ExternalSystem system, String citizenId, Throwable t) {
+        CanonicalCitizenData fallbackData = new CanonicalCitizenData();
+        fallbackData.setCitizenId(citizenId);
+        fallbackData.setFullName("SERVICE_UNAVAILABLE - " + system.name());
+        return fallbackData;
+    }
+
+    @Async
+    public CompletableFuture<CanonicalCitizenData> fetchDataAsync(ExternalSystem system, String citizenId) {
+        return CompletableFuture.completedFuture(fetchData(system, citizenId));
     }
 }

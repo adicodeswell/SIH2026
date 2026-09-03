@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  mock-systems:
+    build:
+      context: ./mock-systems
+    ports:
+      - "8091:8091"
+
+  interoperability-service:
+    build:
+      context: ./interoperability-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      - mock-systems
