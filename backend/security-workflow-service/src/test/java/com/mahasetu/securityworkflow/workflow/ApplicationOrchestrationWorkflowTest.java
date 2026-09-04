@@ -4,9 +4,14 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.mahasetu.securityworkflow.dto.ConsentRequest;
+import com.mahasetu.securityworkflow.dto.OfficerDecisionResponse;
+import com.mahasetu.securityworkflow.entity.AuditLog;
+import com.mahasetu.securityworkflow.service.AuditService;
 import com.mahasetu.securityworkflow.service.ConsentService;
+import com.mahasetu.securityworkflow.service.OfficerTaskService;
 import org.camunda.bpm.engine.ProcessEngine;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
+import org.camunda.bpm.engine.task.Task;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +21,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
+import java.util.List;
 import java.util.Map;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
@@ -33,6 +39,12 @@ public class ApplicationOrchestrationWorkflowTest {
 
     @Autowired
     private ConsentService consentService;
+
+    @Autowired
+    private OfficerTaskService officerTaskService;
+
+    @Autowired
+    private AuditService auditService;
 
     private static final String APP_ID = "APP-12345";
     private static final String CITIZEN_ID = "CIT-99999";
@@ -66,73 +78,188 @@ public class ApplicationOrchestrationWorkflowTest {
         member2MockServer.resetAll();
     }
 
-    @Test
-    void testWorkflow_WithValidConsent_ShouldFetchInteropDataAndCallbackSuccess() {
-        // 1. Stub Member 1 Application Service GET application
-        member1MockServer.stubFor(get(urlEqualTo("/api/v1/applications/" + APP_ID))
+    private void setupApplicationAndInteropMocks(String appId, String citizenId) {
+        // Stub Member 1 Application Service GET application
+        member1MockServer.stubFor(get(urlEqualTo("/api/v1/applications/" + appId))
                 .willReturn(aResponse()
                         .withHeader("Content-Type", "application/json")
                         .withBody("""
                                 {
-                                  "applicationNumber": "APP-12345",
+                                  "applicationNumber": "%s",
                                   "status": "SUBMITTED",
-                                  "citizenId": "CIT-99999",
+                                  "citizenId": "%s",
                                   "serviceCode": "SRV-EDU"
                                 }
-                                """)));
+                                """.formatted(appId, citizenId))));
 
-        // 2. Stub Member 1 status callback endpoint
-        member1MockServer.stubFor(post(urlEqualTo("/internal/v1/applications/" + APP_ID + "/workflow-status"))
+        // Stub Member 1 status callback endpoint
+        member1MockServer.stubFor(post(urlEqualTo("/internal/v1/applications/" + appId + "/workflow-status"))
                 .willReturn(aResponse().withStatus(200)));
 
-        // 3. Setup Consent matching SRV-EDU policy (dataScope: education, purpose: verification)
+        // Setup Consent matching SRV-EDU policy (dataScope: education, purpose: verification)
         ConsentRequest request = new ConsentRequest();
         request.setDataScope("education");
         request.setPurpose("verification");
         request.setRequestingDepartmentId("DEPT-1");
-        consentService.grantConsent(CITIZEN_ID, request);
+        consentService.grantConsent(citizenId, request);
 
-        // 4. Stub Member 2 Interoperability Service
-        member2MockServer.stubFor(get(urlEqualTo("/api/v1/interop/fetch/all/" + CITIZEN_ID))
+        // Stub Member 2 Interoperability Service
+        member2MockServer.stubFor(get(urlEqualTo("/api/v1/interop/fetch/all/" + citizenId))
                 .withHeader("Authorization", equalTo("Bearer " + TOKEN))
                 .willReturn(aResponse()
                         .withHeader("Content-Type", "application/json")
                         .withBody("""
                                 [
                                   {
-                                    "citizenId": "CIT-99999",
+                                    "citizenId": "%s",
                                     "fullName": "Test Citizen",
                                     "highestDegree": "B.Tech"
                                   }
                                 ]
-                                """)));
+                                """.formatted(citizenId))));
+    }
 
-        // 5. Start Workflow
+    @Test
+    void testWorkflow_WithValidConsent_ShouldPauseAtOfficerReviewAndCallbackPending() {
+        setupApplicationAndInteropMocks(APP_ID, CITIZEN_ID);
+
+        // Start Workflow
         ProcessInstance processInstance = processEngine.getRuntimeService()
                 .startProcessInstanceByKey("application-orchestration", Map.of("applicationId", APP_ID));
 
-        // 6. Verify process execution path
-        assertThat(processInstance).isEnded();
-        assertThat(processInstance).hasPassed("Task_InitializeApp", "Task_VerifyConsent", "Task_FetchInterop", "Task_CallbackSuccess", "EndEvent_Success");
+        // Verify process execution path has reached the User Task and genuinely paused
+        assertThat(processInstance).isNotEnded();
+        assertThat(processInstance).isWaitingAt("UserTask_OfficerReview");
+        assertThat(processInstance).hasPassed("Task_InitializeApp", "Task_VerifyConsent", "Task_FetchInterop",
+                "Task_SetPendingReview", "Task_CallbackPendingReview");
 
-        // 7. Verify process variables
+        // Verify intermediate workflow status
+        Object workflowStatus = processEngine.getRuntimeService().getVariable(processInstance.getId(), "workflowStatus");
+        assertEquals("PENDING_OFFICER_REVIEW", workflowStatus);
+
+        // Verify callback was dispatched to Member 1 with PENDING_OFFICER_REVIEW
+        member1MockServer.verify(postRequestedFor(urlEqualTo("/internal/v1/applications/" + APP_ID + "/workflow-status"))
+                .withRequestBody(containing("\"status\":\"PENDING_OFFICER_REVIEW\"")));
+
+        // Verify Camunda task exists for candidateGroup OFFICER
+        Task officerTask = processEngine.getTaskService().createTaskQuery()
+                .processInstanceId(processInstance.getId())
+                .taskDefinitionKey("UserTask_OfficerReview")
+                .singleResult();
+        assertNotNull(officerTask);
+        assertEquals("Officer Review", officerTask.getName());
+    }
+
+    @Test
+    void testWorkflow_OfficerApprove_ResumesWorkflowAndCallbackApproved() {
+        String appId = "APP-APPROVE-1";
+        String citizenId = "CIT-APPROVE-1";
+        setupApplicationAndInteropMocks(appId, citizenId);
+
+        // Start Workflow -> reaches pause
+        ProcessInstance processInstance = processEngine.getRuntimeService()
+                .startProcessInstanceByKey("application-orchestration", Map.of("applicationId", appId));
+
+        assertThat(processInstance).isWaitingAt("UserTask_OfficerReview");
+
+        Task officerTask = processEngine.getTaskService().createTaskQuery()
+                .processInstanceId(processInstance.getId())
+                .taskDefinitionKey("UserTask_OfficerReview")
+                .singleResult();
+        assertNotNull(officerTask);
+
+        // Complete decision via OfficerTaskService
+        OfficerDecisionResponse response = officerTaskService.completeOfficerDecision(
+                officerTask.getId(),
+                "officer_verma",
+                "APPROVE",
+                "Qualifications verified successfully"
+        );
+        assertEquals("APPROVE", response.getDecision());
+        assertEquals("COMPLETED", response.getStatus());
+
+        // Assert process is now completed
+        assertThat(processInstance).isEnded();
+        assertThat(processInstance).hasPassed("Gateway_OfficerDecision", "Task_SetApproved", "Task_CallbackApproved", "EndEvent_Approved");
+        assertThat(processInstance).hasNotPassed("Task_SetRejected");
+
+        // Verify final workflow status
         Object workflowStatus = processEngine.getHistoryService().createHistoricVariableInstanceQuery()
                 .processInstanceId(processInstance.getId())
                 .variableName("workflowStatus")
                 .singleResult()
                 .getValue();
-        assertEquals("SUCCESS", workflowStatus);
+        assertEquals("APPROVED", workflowStatus);
 
-        Object interopResult = processEngine.getHistoryService().createHistoricVariableInstanceQuery()
+        // Verify APPROVED callback sent to Member 1
+        member1MockServer.verify(postRequestedFor(urlEqualTo("/internal/v1/applications/" + appId + "/workflow-status"))
+                .withRequestBody(containing("\"status\":\"APPROVED\""))
+                .withRequestBody(containing("\"officerId\":\"officer_verma\"")));
+
+        // Verify immutable audit log record created
+        List<AuditLog> auditLogs = auditService.getAuditLogsForApplication(appId);
+        assertFalse(auditLogs.isEmpty());
+        AuditLog log = auditLogs.get(0);
+        assertEquals("officer_verma", log.getActorId());
+        assertEquals("APPROVE", log.getPurpose());
+        assertEquals("APPLICATION", log.getResourceType());
+        assertTrue(log.getMetadata().contains("Qualifications verified successfully"));
+    }
+
+    @Test
+    void testWorkflow_OfficerReject_ResumesWorkflowAndCallbackRejected() {
+        String appId = "APP-REJECT-1";
+        String citizenId = "CIT-REJECT-1";
+        setupApplicationAndInteropMocks(appId, citizenId);
+
+        // Start Workflow -> reaches pause
+        ProcessInstance processInstance = processEngine.getRuntimeService()
+                .startProcessInstanceByKey("application-orchestration", Map.of("applicationId", appId));
+
+        assertThat(processInstance).isWaitingAt("UserTask_OfficerReview");
+
+        Task officerTask = processEngine.getTaskService().createTaskQuery()
                 .processInstanceId(processInstance.getId())
-                .variableName("interoperabilityResult")
+                .taskDefinitionKey("UserTask_OfficerReview")
+                .singleResult();
+        assertNotNull(officerTask);
+
+        // Complete decision via OfficerTaskService with REJECT
+        OfficerDecisionResponse response = officerTaskService.completeOfficerDecision(
+                officerTask.getId(),
+                "officer_kulkarni",
+                "REJECT",
+                "Degree certificate mismatch"
+        );
+        assertEquals("REJECT", response.getDecision());
+        assertEquals("COMPLETED", response.getStatus());
+
+        // Assert process is now completed at Rejected end event
+        assertThat(processInstance).isEnded();
+        assertThat(processInstance).hasPassed("Gateway_OfficerDecision", "Task_SetRejected", "Task_CallbackRejected", "EndEvent_Rejected");
+        assertThat(processInstance).hasNotPassed("Task_SetApproved");
+
+        // Verify final workflow status
+        Object workflowStatus = processEngine.getHistoryService().createHistoricVariableInstanceQuery()
+                .processInstanceId(processInstance.getId())
+                .variableName("workflowStatus")
                 .singleResult()
                 .getValue();
-        assertNotNull(interopResult);
+        assertEquals("REJECTED", workflowStatus);
 
-        // 8. Verify callback was dispatched to Member 1
-        member1MockServer.verify(postRequestedFor(urlEqualTo("/internal/v1/applications/" + APP_ID + "/workflow-status"))
-                .withRequestBody(containing("\"status\":\"SUCCESS\"")));
+        // Verify REJECTED callback sent to Member 1 with reason and officerId
+        member1MockServer.verify(postRequestedFor(urlEqualTo("/internal/v1/applications/" + appId + "/workflow-status"))
+                .withRequestBody(containing("\"status\":\"REJECTED\""))
+                .withRequestBody(containing("\"officerId\":\"officer_kulkarni\""))
+                .withRequestBody(containing("\"failureReason\":\"Degree certificate mismatch\"")));
+
+        // Verify immutable audit log record created
+        List<AuditLog> auditLogs = auditService.getAuditLogsForApplication(appId);
+        assertFalse(auditLogs.isEmpty());
+        AuditLog log = auditLogs.get(0);
+        assertEquals("officer_kulkarni", log.getActorId());
+        assertEquals("REJECT", log.getPurpose());
+        assertTrue(log.getMetadata().contains("Degree certificate mismatch"));
     }
 
     @Test
@@ -165,6 +292,7 @@ public class ApplicationOrchestrationWorkflowTest {
         assertThat(processInstance).isEnded();
         assertThat(processInstance).hasPassed("Task_InitializeApp", "Task_VerifyConsent", "Task_SetConsentDenied", "Task_CallbackDenied", "EndEvent_Denied");
         assertThat(processInstance).hasNotPassed("Task_FetchInterop");
+        assertThat(processInstance).hasNotPassed("UserTask_OfficerReview");
 
         // Verify Member 2 was NEVER called
         member2MockServer.verify(0, getRequestedFor(urlPathMatching("/api/v1/interop/.*")));
@@ -201,6 +329,7 @@ public class ApplicationOrchestrationWorkflowTest {
         assertThat(processInstance).hasPassed("Task_InitializeApp", "BoundaryEvent_InitApp", "Task_HandleFailure", "Task_CallbackFailure", "EndEvent_Failed");
         assertThat(processInstance).hasNotPassed("Task_VerifyConsent");
         assertThat(processInstance).hasNotPassed("Task_FetchInterop");
+        assertThat(processInstance).hasNotPassed("UserTask_OfficerReview");
 
         Object workflowStatus = processEngine.getHistoryService().createHistoricVariableInstanceQuery()
                 .processInstanceId(processInstance.getId())
@@ -251,7 +380,9 @@ public class ApplicationOrchestrationWorkflowTest {
                 .startProcessInstanceByKey("application-orchestration", Map.of("applicationId", appId));
 
         assertThat(processInstance).isEnded();
-        assertThat(processInstance).hasPassed("Task_InitializeApp", "Task_VerifyConsent", "Task_FetchInterop", "BoundaryEvent_Interop", "Task_HandleFailure", "Task_CallbackFailure", "EndEvent_Failed");
+        assertThat(processInstance).hasPassed("Task_InitializeApp", "Task_VerifyConsent", "Task_FetchInterop",
+                "BoundaryEvent_Interop", "Task_HandleFailure", "Task_CallbackFailure", "EndEvent_Failed");
+        assertThat(processInstance).hasNotPassed("UserTask_OfficerReview");
 
         Object workflowStatus = processEngine.getHistoryService().createHistoricVariableInstanceQuery()
                 .processInstanceId(processInstance.getId())
@@ -291,8 +422,10 @@ public class ApplicationOrchestrationWorkflowTest {
                 .startProcessInstanceByKey("application-orchestration", Map.of("applicationId", appId));
 
         assertThat(processInstance).isEnded();
-        assertThat(processInstance).hasPassed("Task_InitializeApp", "Task_VerifyConsent", "BoundaryEvent_Consent", "Task_HandleFailure", "Task_CallbackFailure", "EndEvent_Failed");
+        assertThat(processInstance).hasPassed("Task_InitializeApp", "Task_VerifyConsent",
+                "BoundaryEvent_Consent", "Task_HandleFailure", "Task_CallbackFailure", "EndEvent_Failed");
         assertThat(processInstance).hasNotPassed("Task_FetchInterop");
+        assertThat(processInstance).hasNotPassed("UserTask_OfficerReview");
 
         Object workflowStatus = processEngine.getHistoryService().createHistoricVariableInstanceQuery()
                 .processInstanceId(processInstance.getId())

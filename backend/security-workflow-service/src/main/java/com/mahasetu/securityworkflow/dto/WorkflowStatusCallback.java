@@ -10,15 +10,21 @@ public class WorkflowStatusCallback {
     private String processInstanceId;
     private String status;
     private String failureReason;
+    private String officerId;
 
     public WorkflowStatusCallback() {
     }
 
     public WorkflowStatusCallback(String applicationId, String processInstanceId, String status, String failureReason) {
+        this(applicationId, processInstanceId, status, failureReason, null);
+    }
+
+    public WorkflowStatusCallback(String applicationId, String processInstanceId, String status, String failureReason, String officerId) {
         this.applicationId = applicationId;
         this.processInstanceId = processInstanceId;
         this.status = status;
         this.failureReason = failureReason;
+        this.officerId = officerId;
     }
 
     public String getApplicationId() {
@@ -51,5 +57,13 @@ public class WorkflowStatusCallback {
 
     public void setFailureReason(String failureReason) {
         this.failureReason = failureReason;
+    }
+
+    public String getOfficerId() {
+        return officerId;
+    }
+
+    public void setOfficerId(String officerId) {
+        this.officerId = officerId;
     }
 }

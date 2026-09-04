@@ -74,18 +74,82 @@
 
     <bpmn:sequenceFlow id="Flow_Interop_Error" sourceRef="BoundaryEvent_Interop" targetRef="Task_HandleFailure" />
 
-    <bpmn:sequenceFlow id="Flow_Interop" sourceRef="Task_FetchInterop" targetRef="Task_CallbackSuccess" />
+    <bpmn:sequenceFlow id="Flow_Interop" sourceRef="Task_FetchInterop" targetRef="Task_SetPendingReview" />
 
-    <!-- ==================== SUCCESS CALLBACK ==================== -->
-    <bpmn:serviceTask id="Task_CallbackSuccess" name="Callback Success" camunda:delegateExpression="${statusCallbackWorker}">
+    <!-- ==================== OFFICER REVIEW STAGE (HUMAN-IN-THE-LOOP) ==================== -->
+    <bpmn:serviceTask id="Task_SetPendingReview" name="Set Pending Officer Review" camunda:expression="${execution.setVariable('workflowStatus', 'PENDING_OFFICER_REVIEW')}">
       <bpmn:incoming>Flow_Interop</bpmn:incoming>
-      <bpmn:outgoing>Flow_CallbackSuccess</bpmn:outgoing>
+      <bpmn:outgoing>Flow_To_CallbackPending</bpmn:outgoing>
     </bpmn:serviceTask>
 
-    <bpmn:sequenceFlow id="Flow_CallbackSuccess" sourceRef="Task_CallbackSuccess" targetRef="EndEvent_Success" />
+    <bpmn:sequenceFlow id="Flow_To_CallbackPending" sourceRef="Task_SetPendingReview" targetRef="Task_CallbackPendingReview" />
 
-    <bpmn:endEvent id="EndEvent_Success" name="Success">
-      <bpmn:incoming>Flow_CallbackSuccess</bpmn:incoming>
+    <bpmn:serviceTask id="Task_CallbackPendingReview" name="Callback Pending Review" camunda:delegateExpression="${statusCallbackWorker}">
+      <bpmn:incoming>Flow_To_CallbackPending</bpmn:incoming>
+      <bpmn:outgoing>Flow_To_OfficerReview</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_To_OfficerReview" sourceRef="Task_CallbackPendingReview" targetRef="UserTask_OfficerReview" />
+
+    <!-- Camunda User Task: Pauses execution until claimed/completed by an officer -->
+    <bpmn:userTask id="UserTask_OfficerReview" name="Officer Review" camunda:candidateGroups="OFFICER">
+      <bpmn:incoming>Flow_To_OfficerReview</bpmn:incoming>
+      <bpmn:outgoing>Flow_To_DecisionGateway</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:sequenceFlow id="Flow_To_DecisionGateway" sourceRef="UserTask_OfficerReview" targetRef="Gateway_OfficerDecision" />
+
+    <!-- Exclusive Gateway evaluating officer decision -->
+    <bpmn:exclusiveGateway id="Gateway_OfficerDecision" name="Officer Decision?">
+      <bpmn:incoming>Flow_To_DecisionGateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_Decision_Approve</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Decision_Reject</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- APPROVED PATH -->
+    <bpmn:sequenceFlow id="Flow_Decision_Approve" name="Approve" sourceRef="Gateway_OfficerDecision" targetRef="Task_SetApproved">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${officerDecision == 'APPROVE'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <bpmn:serviceTask id="Task_SetApproved" name="Set Status Approved" camunda:expression="${execution.setVariable('workflowStatus', 'APPROVED')}">
+      <bpmn:incoming>Flow_Decision_Approve</bpmn:incoming>
+      <bpmn:outgoing>Flow_To_CallbackApproved</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_To_CallbackApproved" sourceRef="Task_SetApproved" targetRef="Task_CallbackApproved" />
+
+    <bpmn:serviceTask id="Task_CallbackApproved" name="Callback Approved" camunda:delegateExpression="${statusCallbackWorker}">
+      <bpmn:incoming>Flow_To_CallbackApproved</bpmn:incoming>
+      <bpmn:outgoing>Flow_Approved</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_Approved" sourceRef="Task_CallbackApproved" targetRef="EndEvent_Approved" />
+
+    <bpmn:endEvent id="EndEvent_Approved" name="Approved">
+      <bpmn:incoming>Flow_Approved</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <!-- REJECTED PATH -->
+    <bpmn:sequenceFlow id="Flow_Decision_Reject" name="Reject" sourceRef="Gateway_OfficerDecision" targetRef="Task_SetRejected">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${officerDecision == 'REJECT'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <bpmn:serviceTask id="Task_SetRejected" name="Set Status Rejected" camunda:expression="${execution.setVariable('workflowStatus', 'REJECTED')}">
+      <bpmn:incoming>Flow_Decision_Reject</bpmn:incoming>
+      <bpmn:outgoing>Flow_To_CallbackRejected</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_To_CallbackRejected" sourceRef="Task_SetRejected" targetRef="Task_CallbackRejected" />
+
+    <bpmn:serviceTask id="Task_CallbackRejected" name="Callback Rejected" camunda:delegateExpression="${statusCallbackWorker}">
+      <bpmn:incoming>Flow_To_CallbackRejected</bpmn:incoming>
+      <bpmn:outgoing>Flow_Rejected</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_Rejected" sourceRef="Task_CallbackRejected" targetRef="EndEvent_Rejected" />
+
+    <bpmn:endEvent id="EndEvent_Rejected" name="Rejected">
+      <bpmn:incoming>Flow_Rejected</bpmn:incoming>
     </bpmn:endEvent>
 
     <!-- ==================== CONSENT DENIED PATH ==================== -->

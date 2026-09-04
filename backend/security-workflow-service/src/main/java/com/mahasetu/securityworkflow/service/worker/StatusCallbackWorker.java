@@ -29,16 +29,18 @@ public class StatusCallbackWorker implements JavaDelegate {
         String applicationId = (String) execution.getVariable("applicationId");
         String workflowStatus = (String) execution.getVariable("workflowStatus");
         String failureReason = (String) execution.getVariable("failureReason");
+        String officerId = (String) execution.getVariable("officerId");
         String processInstanceId = execution.getProcessInstanceId();
 
-        log.info("StatusCallbackWorker executing: applicationId={}, processInstanceId={}, workflowStatus={}",
-                applicationId, processInstanceId, workflowStatus);
+        log.info("StatusCallbackWorker executing: applicationId={}, processInstanceId={}, workflowStatus={}, officerId={}",
+                applicationId, processInstanceId, workflowStatus, officerId);
 
         WorkflowStatusCallback callback = new WorkflowStatusCallback(
                 applicationId,
                 processInstanceId,
                 workflowStatus,
-                failureReason
+                failureReason,
+                officerId
         );
 
         workflowStatusClient.sendStatusCallback(callback);
