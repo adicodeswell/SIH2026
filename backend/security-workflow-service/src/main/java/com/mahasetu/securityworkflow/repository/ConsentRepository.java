@@ -1,0 +1,17 @@
+package com.mahasetu.securityworkflow.repository;
+
+import com.mahasetu.securityworkflow.entity.Consent;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+public interface ConsentRepository extends JpaRepository<Consent, UUID> {
+
+    List<Consent> findByCitizenId(String citizenId);
+
+    Optional<Consent> findByCitizenIdAndDataScopeAndPurposeAndStatus(String citizenId, String dataScope, String purpose, String status);
+}

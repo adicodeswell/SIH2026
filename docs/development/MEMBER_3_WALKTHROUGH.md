@@ -160,10 +160,48 @@ Important warnings preserved:
 - Do NOT fix Member 2's hardcoded interoperability token in Phase 2/this documentation task.
 
 ============================================================
-PHASE 3 STARTING POINT
+PHASE 3 COMPLETED
 ============================================================
-Phase 3 must begin with repository reconnaissance.
-Phase 3 must inspect this walkthrough and re-analyze the repository before coding.
-Phase 3 will focus on CONSENT MANAGEMENT, including:
-- Consent model, scope, purpose, grant, deny, revocation, checking.
-- Tests and integration with existing Application Service.
+
+1. **Date/phase:** 2026-09-04 / Phase 3
+2. **Objective:** Implement a secure, test-driven Consent Management capability owned by Member 3, while integrating correctly with Member 1's existing Application Service.
+3. **Reconnaissance findings:** Member 1 had an existing `consents` table created in `V1__initial_schema.sql` tied by foreign keys to `citizens` and `departments`. An internal consent-check contract was expected at `/internal/v1/consents/check`.
+4. **Consent domain ownership decision:** To avoid destructive migration while assuming ownership, `security-workflow-service` temporarily integrates by connecting to the same shared PostgreSQL database to manage the `consents` table.
+5. **Existing Member 1 consent contract:** Member 1's `ConsentClient` performs a `GET /internal/v1/consents/check?citizenId=...&dataScope=...&purpose=...` and expects HTTP 200 OK for valid consent, and 403/404 for invalid.
+6. **Files created:**
+   - `Consent.java` (Entity)
+   - `ConsentRepository.java`
+   - `ConsentService.java`
+   - `ConsentRequest.java` (DTO)
+   - `ConsentServiceTest.java`
+   - `ConsentControllerSecurityTest.java`
+7. **Files modified:**
+   - `pom.xml` (added `spring-boot-starter-data-jpa`, `postgresql`, and `h2` for tests)
+   - `application.yml` (added DB connection properties to `mahasetu` db)
+   - `ConsentController.java` (added endpoints)
+   - `SecurityConfig.java` (disabled CSRF, permitted `/internal/v1/consents/check`)
+8. **Why each file changed:** Necessary to implement the business logic for Consent Management, persist to the DB, expose REST APIs, and enforce security.
+9. **Consent model:** Tracks `citizenId`, `requestingDepartmentId`, `dataScope`, `purpose`, `status`, `grantedAt`, and `expiresAt`.
+10. **Consent states:** `GRANTED`, `REVOKED`, `EXPIRED`.
+11. **API endpoints:**
+    - `POST /api/v1/consents` (Citizen grants)
+    - `POST /api/v1/consents/{id}/revoke` (Citizen revokes)
+    - `GET /api/v1/consents` (List citizen's consents)
+12. **Internal consent-check contract:** `GET /internal/v1/consents/check` returning 200 OK or 403 Forbidden based on validity.
+13. **Ownership/security rules:** `@PreAuthorize("hasRole('CITIZEN')")` is used for modification APIs. `citizenId` is extracted directly from the authenticated JWT token (`authentication.getName()`), preventing modifying other citizens' consents.
+14. **Tests added:** Unit tests for `ConsentService` testing domain logic. `WebMvcTest` for `ConsentController` testing role-based access and authentication.
+15. **Exact test commands executed:** `mvn clean test -f pom.xml` (full reactor build).
+16. **Exact test results:** 20/20 passed in `security-workflow-service`, 0 failures, 0 errors.
+17. **Full reactor result:** BUILD SUCCESS.
+18. **Integration result:** Application service tests continue to pass correctly.
+19. **SOLID/design decisions:** Extracted `ConsentService` to handle domain logic independent of controllers.
+20. **Known limitations:** Still sharing the `mahasetu` database with Member 1's service due to legacy foreign keys.
+21. **Known problems:** Member 2 hardcoded token remains.
+22. **Things deliberately NOT implemented:** Camunda and Workflow logic.
+23. **What Phase 4 should implement:** CAMUNDA / WORKFLOW FOUNDATION.
+
+============================================================
+PHASE 4 STARTING POINT
+============================================================
+Phase 4 must begin with repository reconnaissance.
+Phase 4 will focus on CAMUNDA / WORKFLOW FOUNDATION.
