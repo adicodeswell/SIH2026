@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_1"
+                  targetNamespace="http://bpmn.io/schema/bpmn"
+                  exporter="Camunda Modeler" exporterVersion="4.12.0">
+  <bpmn:process id="application-orchestration" name="Application Orchestration" isExecutable="true" camunda:historyTimeToLive="180">
+    
+    <bpmn:startEvent id="StartEvent_1" name="Start">
+      <bpmn:outgoing>Flow_Start</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:sequenceFlow id="Flow_Start" sourceRef="StartEvent_1" targetRef="Task_InitializeApp" />
+
+    <bpmn:serviceTask id="Task_InitializeApp" name="Initialize Application" camunda:delegateExpression="${initializeApplicationWorker}">
+      <bpmn:incoming>Flow_Start</bpmn:incoming>
+      <bpmn:outgoing>Flow_Initialize</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_Initialize" sourceRef="Task_InitializeApp" targetRef="Task_VerifyConsent" />
+
+    <bpmn:serviceTask id="Task_VerifyConsent" name="Verify Consent" camunda:delegateExpression="${verifyConsentWorker}">
+      <bpmn:incoming>Flow_Initialize</bpmn:incoming>
+      <bpmn:outgoing>Flow_Verify</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_Verify" sourceRef="Task_VerifyConsent" targetRef="Gateway_Consent" />
+
+    <bpmn:exclusiveGateway id="Gateway_Consent" name="Consent Valid?">
+      <bpmn:incoming>Flow_Verify</bpmn:incoming>
+      <bpmn:outgoing>Flow_Consent_Yes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Consent_No</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:sequenceFlow id="Flow_Consent_Yes" name="Yes" sourceRef="Gateway_Consent" targetRef="Task_FetchInterop">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${consentValid == true}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <bpmn:serviceTask id="Task_FetchInterop" name="Fetch Interoperability Data" camunda:delegateExpression="${interoperabilityWorker}">
+      <bpmn:incoming>Flow_Consent_Yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_Interop</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_Interop" sourceRef="Task_FetchInterop" targetRef="EndEvent_Success" />
+
+    <bpmn:endEvent id="EndEvent_Success" name="Success">
+      <bpmn:incoming>Flow_Interop</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:sequenceFlow id="Flow_Consent_No" name="No" sourceRef="Gateway_Consent" targetRef="Task_SetConsentDenied">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${consentValid == false}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <bpmn:serviceTask id="Task_SetConsentDenied" name="Set Consent Denied" camunda:expression="${execution.setVariable('workflowStatus', 'CONSENT_DENIED')}">
+      <bpmn:incoming>Flow_Consent_No</bpmn:incoming>
+      <bpmn:outgoing>Flow_Denied</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_Denied" sourceRef="Task_SetConsentDenied" targetRef="EndEvent_Denied" />
+
+    <bpmn:endEvent id="EndEvent_Denied" name="Consent Denied">
+      <bpmn:incoming>Flow_Denied</bpmn:incoming>
+    </bpmn:endEvent>
+
+  </bpmn:process>
+</bpmn:definitions>

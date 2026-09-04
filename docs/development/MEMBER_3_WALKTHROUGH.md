@@ -268,3 +268,111 @@ PHASE 4 COMPLETED
 12. **Database decisions:** Camunda created its own schema inside the existing H2/Postgres DB. We successfully avoided mutating Member 1's schema.
 13. **Things deliberately NOT implemented:** End-to-end full process logic, external worker tasks (Service tasks). We only established the foundation (process start capability).
 14. **What Phase 5 should implement:** Building out the full BPMN process definitions and implementing external task workers for the interoperability service.
+
+============================================================
+PHASE 5 COMPLETED
+============================================================
+
+1. **Date/phase:** 2026-09-04 / Phase 5
+2. **Objective:** Build the first real MahaSetu orchestration workflow — a complete BPMN-driven process that integrates Member 1 (Application Service), Member 3 (Consent Management), and Member 2 (Interoperability Service) in one automated pipeline.
+3. **Architecture implemented:**
+   ```
+   Citizen → Application Service (M1) → POST /internal/v1/workflows → Security-Workflow-Service (M3)
+                                                                              |
+                                                                     Camunda BPMN Engine
+                                                                              |
+                                                              ┌───────────────┼───────────────┐
+                                                              v               v               v
+                                                    InitializeApp    VerifyConsent    FetchInterop
+                                                    (calls M1)      (local Phase 3)  (calls M2)
+   ```
+
+4. **Files created:**
+   - `src/main/java/com/mahasetu/securityworkflow/client/ApplicationServiceClient.java` — REST client for Member 1's Application API.
+   - `src/main/java/com/mahasetu/securityworkflow/client/InteroperabilityClient.java` — REST client for Member 2's Interoperability API (with Bearer token auth).
+   - `src/main/java/com/mahasetu/securityworkflow/service/worker/InitializeApplicationWorker.java` — Camunda JavaDelegate that fetches application details and extracts citizenId/serviceCode.
+   - `src/main/java/com/mahasetu/securityworkflow/service/worker/VerifyConsentWorker.java` — Camunda JavaDelegate that invokes Phase 3 ConsentService to check citizen consent.
+   - `src/main/java/com/mahasetu/securityworkflow/service/worker/InteroperabilityWorker.java` — Camunda JavaDelegate that calls Member 2 to fetch canonical citizen data.
+   - `src/main/resources/bpmn/application-orchestration.bpmn` — The production BPMN workflow definition.
+   - `src/main/java/com/mahasetu/securityworkflow/dto/ApplicationResponse.java` — DTO for Member 1 API responses.
+   - `src/main/java/com/mahasetu/securityworkflow/dto/CanonicalCitizenData.java` — DTO for Member 2 API responses.
+   - `src/main/java/com/mahasetu/securityworkflow/config/RestTemplateConfig.java` — Spring `@Bean` for `RestTemplate`.
+   - `src/test/java/com/mahasetu/securityworkflow/workflow/ApplicationOrchestrationWorkflowTest.java` — End-to-end integration tests using WireMock.
+
+5. **Files modified:**
+   - `application.yml` — Added `mahasetu.application-service.url`, `mahasetu.interoperability-service.url`, and `mahasetu.interoperability-service.token` configuration with environment variable overrides.
+   - `src/test/resources/application.yml` — Added matching test properties for WireMock-based tests.
+   - `pom.xml` — Added `wiremock-standalone` test dependency.
+
+6. **BPMN Workflow (`application-orchestration`):**
+   - **StartEvent** → **InitializeApplicationWorker** → **VerifyConsentWorker** → **Gateway (Consent Valid?)** → If yes: **InteroperabilityWorker** → **EndEvent_Success** / If no: **SetConsentDenied** → **EndEvent_Denied**
+   - Uses `camunda:delegateExpression` to wire Spring-managed beans as service task handlers.
+   - `camunda:historyTimeToLive="180"` set on the process definition.
+
+7. **Worker design:**
+   - **InitializeApplicationWorker**: Reads `applicationId` from process variables, calls `GET /api/v1/applications/{id}` on Member 1, stores `citizenId` and `serviceCode` as process variables.
+   - **VerifyConsentWorker**: Reads `citizenId`, calls `ConsentService.checkConsent()` locally (Phase 3 integration), stores `consentValid` boolean as a process variable.
+   - **InteroperabilityWorker**: Reads `citizenId`, calls `GET /api/v1/interop/fetch/all/{citizenId}` on Member 2 with Bearer token, serializes result to JSON and stores as `interoperabilityResult`, sets `workflowStatus = "SUCCESS"`.
+
+8. **Consent denied path:**
+   - When `consentValid == false`, the BPMN gateway routes to a `camunda:expression` service task that sets `workflowStatus = "CONSENT_DENIED"`, then ends at `EndEvent_Denied`.
+   - Member 2 is NEVER called if consent is denied (verified in tests).
+
+9. **External service integration:**
+   - Member 1 (Application Service) URL: `${APPLICATION_SERVICE_URL:http://localhost:8081}`
+   - Member 2 (Interoperability Service) URL: `${INTEROPERABILITY_SERVICE_URL:http://localhost:8082}`
+   - Member 2 token: `${MAHASETU_SUPER_SECRET_TOKEN_2026:MAHASETU_SUPER_SECRET_TOKEN_2026}` (deliberate technical debt, same hardcoded token from Member 2).
+
+10. **Tests added:**
+    - `testWorkflow_WithValidConsent_ShouldFetchInteropData`: Full happy path — stubs M1 and M2 via WireMock, grants consent via ConsentService, starts workflow, asserts it passes through all tasks and ends at `EndEvent_Success` with `workflowStatus = "SUCCESS"` and non-null `interoperabilityResult`.
+    - `testWorkflow_WithDeniedConsent_ShouldNotCallMember2`: Consent denied path — stubs M1, does NOT grant consent, starts workflow, asserts it routes through `Task_SetConsentDenied` → `EndEvent_Denied`, verifies M2 was never called, and `workflowStatus = "CONSENT_DENIED"`.
+
+11. **Test infrastructure:**
+    - WireMock servers started on dynamic ports for both Member 1 and Member 2.
+    - `@DynamicPropertySource` overrides `mahasetu.*` URLs at runtime to point to WireMock.
+    - Full `@SpringBootTest` with real Camunda engine running against H2.
+
+12. **Exact test commands executed:**
+    - `mvn clean test -pl backend/security-workflow-service`
+    - `mvn clean test -f pom.xml`
+
+13. **Exact test results:**
+    - security-workflow-service: 28/28 tests passed, 0 failures, 0 errors.
+    - Full Maven reactor: BUILD SUCCESS.
+    - Application Service: SUCCESS
+    - Interoperability Service: SUCCESS
+    - Security Workflow Service: SUCCESS
+    - Education Mock System: SUCCESS
+    - Employment Mock System: SUCCESS
+    - Total time: ~57 seconds.
+
+14. **SOLID/design decisions:**
+    - Workers are thin JavaDelegates that delegate to Spring-managed clients/services.
+    - Clients are `@Component`-annotated with constructor-injected config values.
+    - `ObjectMapper` is used for JSON serialization in InteroperabilityWorker to store structured data as a Camunda string variable.
+
+15. **Security decisions:**
+    - Service-to-service authentication is still deferred (`.permitAll()` on internal endpoints).
+    - Member 2's hardcoded token is propagated as-is, matching the existing interoperability contract.
+
+16. **Known limitations:**
+    - `VerifyConsentWorker` hardcodes `dataScope = "education,employment,skills"` and `purpose = "verification"` instead of dynamically deriving them from service code. This is acceptable for Phase 5 as a proof-of-concept.
+    - No error boundary events or retry logic in the BPMN. Worker exceptions propagate directly.
+    - No workflow status callback to Member 1 after completion.
+
+17. **Known problems:**
+    - Member 2 hardcoded token remains (deliberate).
+    - No mTLS or OAuth2 client credentials for service-to-service auth.
+
+18. **Things deliberately NOT implemented:**
+    - Dynamic dataScope/purpose mapping from service codes.
+    - Error boundary events and compensation flows.
+    - Asynchronous continuation / retry policies.
+    - Workflow completion callbacks to Member 1.
+
+19. **What Phase 6 should implement:**
+    - Dynamic consent scope mapping based on application service code.
+    - Error handling / compensation flows in BPMN.
+    - Workflow status callbacks to Member 1.
+    - Service-to-service authentication (mTLS or OAuth2 client credentials).
+    - Observability (Camunda cockpit / metrics).

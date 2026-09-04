@@ -34,3 +34,10 @@ camunda:
       schema-update: true
     job-execution:
       enabled: false
+
+mahasetu:
+  application-service:
+    url: ${APPLICATION_SERVICE_URL:http://localhost:8081}
+  interoperability-service:
+    url: ${INTEROPERABILITY_SERVICE_URL:http://localhost:8082}
+    token: ${MAHASETU_SUPER_SECRET_TOKEN_2026:MAHASETU_SUPER_SECRET_TOKEN_2026}
