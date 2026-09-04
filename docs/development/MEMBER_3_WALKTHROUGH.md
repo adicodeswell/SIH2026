@@ -182,26 +182,59 @@ PHASE 3 COMPLETED
    - `SecurityConfig.java` (disabled CSRF, permitted `/internal/v1/consents/check`)
 8. **Why each file changed:** Necessary to implement the business logic for Consent Management, persist to the DB, expose REST APIs, and enforce security.
 9. **Consent model:** Tracks `citizenId`, `requestingDepartmentId`, `dataScope`, `purpose`, `status`, `grantedAt`, and `expiresAt`.
-10. **Consent states:** `GRANTED`, `REVOKED`, `EXPIRED`.
+10. **Consent states:** Persisted states are `GRANTED` and `REVOKED`. `DENIED` is intentionally represented by the absence of an active, unexpired `GRANTED` consent record (default-deny architecture). Expiry is dynamically validated against `expires_at` rather than through an asynchronous batch mutating database status.
 11. **API endpoints:**
     - `POST /api/v1/consents` (Citizen grants)
     - `POST /api/v1/consents/{id}/revoke` (Citizen revokes)
     - `GET /api/v1/consents` (List citizen's consents)
-12. **Internal consent-check contract:** `GET /internal/v1/consents/check` returning 200 OK or 403 Forbidden based on validity.
-13. **Ownership/security rules:** `@PreAuthorize("hasRole('CITIZEN')")` is used for modification APIs. `citizenId` is extracted directly from the authenticated JWT token (`authentication.getName()`), preventing modifying other citizens' consents.
-14. **Tests added:** Unit tests for `ConsentService` testing domain logic. `WebMvcTest` for `ConsentController` testing role-based access and authentication.
-15. **Exact test commands executed:** `mvn clean test -f pom.xml` (full reactor build).
+12. **Internal consent-check contract:** `GET /internal/v1/consents/check` returning 200 OK or 403 Forbidden based on validity. Publicly accessible via `permitAll()` as a deliberate compatibility bridge for Member 1's unauthenticated `ConsentClient`.
+13. **Ownership/security rules:** `@PreAuthorize("hasRole('CITIZEN')")` is used for modification APIs. `citizenId` is extracted directly from the authenticated JWT token (`authentication.getName()`, mapping to the JWT `sub` claim), preventing a citizen from creating or revoking another citizen's consent.
+14. **Tests added:** Unit tests for `ConsentService` testing domain logic (including revocation ownership and expiry). `WebMvcTest` for `ConsentController` testing role-based access, authentication boundaries, and internal endpoint response codes.
+15. **Exact test commands executed:** `mvn clean test -f pom.xml` (full reactor build) and `mvn test -pl backend/security-workflow-service`.
 16. **Exact test results:** 20/20 passed in `security-workflow-service`, 0 failures, 0 errors.
 17. **Full reactor result:** BUILD SUCCESS.
 18. **Integration result:** Application service tests continue to pass correctly.
 19. **SOLID/design decisions:** Extracted `ConsentService` to handle domain logic independent of controllers.
-20. **Known limitations:** Still sharing the `mahasetu` database with Member 1's service due to legacy foreign keys.
-21. **Known problems:** Member 2 hardcoded token remains.
+20. **Known limitations:** Still sharing the `mahasetu` database with Member 1's service due to legacy foreign keys. `spring.jpa.hibernate.ddl-auto: validate` guarantees non-destructive schema access.
+21. **Known problems:** Member 2 hardcoded token remains; Member 1 -> Member 3 internal service-to-service authentication is deferred (currently `permitAll()` on check endpoint).
 22. **Things deliberately NOT implemented:** Camunda and Workflow logic.
 23. **What Phase 4 should implement:** CAMUNDA / WORKFLOW FOUNDATION.
+
+============================================================
+PHASE 3 SECURITY & DESIGN AUDIT SUMMARY
+============================================================
+
+1. **Internal Endpoint Security (`/internal/v1/consents/check`)**:
+   - Currently `.permitAll()` in `SecurityConfig.java`.
+   - Required as a compatibility bridge because Member 1's `ConsentClient` lacks JWT/token propagation or mTLS.
+   - Read-only boolean check (returns 200 OK or 403 Forbidden). It does not leak personal data or allow data mutation, but acts as an existence oracle across untrusted networks. Deferred until service-to-service auth (mTLS or OAuth2 client credentials) is addressed.
+
+2. **Consent Domain Ownership**:
+   - Member 3 (`security-workflow-service`) is the authoritative owner of consent business logic, validation rules, and persistence.
+   - Member 1 retains the legacy schema table definition and foreign keys (`citizens`, `departments`), while `application-service` has no repository/controller for consents.
+   - Shared DB is a temporary compatibility decision; Member 3 uses `ddl-auto: validate` ensuring zero destructive schema changes.
+
+3. **Consent State Representation**:
+   - `DENIED` is intentionally represented by the absence of a valid, unexpired `GRANTED` consent record (default-deny architecture).
+   - No separate `DENIED` state is stored in the database.
+
+4. **Citizen Ownership & Identity**:
+   - Identity is strictly extracted from `authentication.getName()` (the JWT `sub` claim).
+   - Creation payloads do not accept a `citizenId` field.
+   - Revocation enforces ownership check against `authentication.getName()`, throwing `SecurityException` on mismatch.
+
+5. **Consent Validity**:
+   - Multi-criteria validation: citizen match, dataScope match, purpose match, `status == 'GRANTED'`, and `expiresAt > now()`.
+
+6. **Test Quality**:
+   - All 20 tests in `security-workflow-service` test genuine functional and security behavior (401 unauthorized, 403 forbidden, role isolation, expired tokens, ownership violations).
+
+7. **Database Safety**:
+   - `spring.jpa.hibernate.ddl-auto: validate` prevents any schema mutations or duplicate table collisions.
 
 ============================================================
 PHASE 4 STARTING POINT
 ============================================================
 Phase 4 must begin with repository reconnaissance.
 Phase 4 will focus on CAMUNDA / WORKFLOW FOUNDATION.
+
