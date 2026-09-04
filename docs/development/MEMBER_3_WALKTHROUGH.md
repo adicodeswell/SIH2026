@@ -238,3 +238,33 @@ PHASE 4 STARTING POINT
 Phase 4 must begin with repository reconnaissance.
 Phase 4 will focus on CAMUNDA / WORKFLOW FOUNDATION.
 
+============================================================
+PHASE 4 COMPLETED
+============================================================
+
+1. **Date/phase:** 2026-09-04 / Phase 4
+2. **Objective:** Build the foundational Camunda/workflow capability inside Member 3 (`security-workflow-service`), meeting the contract defined in Member 1.
+3. **Reconnaissance findings:** Member 1 already possessed a `WorkflowClient` that expects to `POST /internal/v1/workflows` with `{ "applicationId", "workflowKey" }`. It also owns the `workflow_instances` database table with a foreign key to its `applications` table.
+4. **Camunda Engine Decision:** Selected Camunda 7 Platform Embedded (`camunda-bpm-spring-boot-starter`). This integrates smoothly with the existing Spring Boot application and manages its own internal `ACT_*` engine tables, ensuring absolutely no conflict with Member 1's `workflow_instances` schema.
+5. **Files created:**
+   - `WorkflowStartRequest.java` and `WorkflowStartResponse.java` (DTOs)
+   - `WorkflowServiceTest.java` (Unit tests)
+   - `WorkflowControllerTest.java` (WebMvcTests)
+6. **Files modified:**
+   - `pom.xml` (added Camunda embedded starter dependencies)
+   - `application.yml` (added `camunda.bpm` configurations to both main and test profiles)
+   - `WorkflowService.java` (implemented `startWorkflow` with validation and Camunda's `RuntimeService`)
+   - `WorkflowController.java` (exposed internal endpoint matching Member 1's contract)
+   - `SecurityConfig.java` (permitted `/internal/v1/workflows/**`)
+   - `common-review.bpmn` (replaced placeholder with minimal executable BPMN process).
+   - Removed empty BPMN placeholders (`education-verification.bpmn`, `skill-benefit-v1.bpmn`) as they broke Camunda's XML parser.
+7. **BPMN configuration:** The BPMN process explicitly uses `camunda:historyTimeToLive="P30D"` to satisfy Camunda 7's requirement for history cleanup config.
+8. **Tests added:** 
+   - `WorkflowServiceTest` (verifying BPMN validation and process starts).
+   - `WorkflowControllerTest` (verifying contract inputs, validation errors, and success responses).
+9. **Exact test commands executed:** `mvn clean test -pl backend/security-workflow-service` and `mvn clean test -f pom.xml`
+10. **Exact test results:** ACTUALLY EXECUTED AND PASSED: 26/26 tests passed in `security-workflow-service`. Full Maven reactor build BUILD SUCCESS.
+11. **Security decisions:** Service-to-service authentication is still deferred, maintaining the `.permitAll()` pattern for the new internal workflow endpoint.
+12. **Database decisions:** Camunda created its own schema inside the existing H2/Postgres DB. We successfully avoided mutating Member 1's schema.
+13. **Things deliberately NOT implemented:** End-to-end full process logic, external worker tasks (Service tasks). We only established the foundation (process start capability).
+14. **What Phase 5 should implement:** Building out the full BPMN process definitions and implementing external task workers for the interoperability service.

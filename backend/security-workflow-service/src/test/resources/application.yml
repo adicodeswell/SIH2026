@@ -19,3 +19,11 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: http://localhost:8080/realms/mahasetu
+
+camunda:
+  bpm:
+    auto-deployment-enabled: true
+    database:
+      schema-update: true
+    job-execution:
+      enabled: false

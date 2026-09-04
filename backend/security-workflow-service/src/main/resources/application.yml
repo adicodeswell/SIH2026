@@ -27,5 +27,10 @@ management:
       exposure:
         include: health,info
 
-
-
+camunda:
+  bpm:
+    auto-deployment-enabled: true
+    database:
+      schema-update: true
+    job-execution:
+      enabled: false
