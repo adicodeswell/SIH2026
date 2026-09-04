@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="education-system-mock" />
+        <module name="application-service" />
+        <module name="interoperability-service" />
+        <module name="employment-system-mock" />
+        <module name="security-workflow-service" />
+      </profile>
+    </annotationProcessing>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="application-service" options="-parameters" />
+      <module name="education-system-mock" options="-parameters" />
+      <module name="employment-system-mock" options="-parameters" />
+      <module name="interoperability-service" options="-parameters" />
+      <module name="security-workflow-service" options="-parameters" />
+    </option>
+  </component>
+</project>
