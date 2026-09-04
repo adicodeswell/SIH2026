@@ -35,7 +35,7 @@ public class ApplicationControllerTest {
     private ObjectMapper objectMapper;
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "CITIZEN")
     void testCreateApplication_Success() throws Exception {
         CreateApplicationRequest req = new CreateApplicationRequest();
         req.setCitizenId("MH1001");

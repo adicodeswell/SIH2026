@@ -69,3 +69,51 @@ PHASE 1 COMPLETED
 PHASE 2 STARTING POINT
 --------------------------------------------------
 The authentication foundation is now ready. The next agent implementing Phase 2 **MUST inspect this walkthrough AND re-analyze the repository before coding**. Do not assume the files remain unchanged. Focus strictly on RBAC in Phase 2.
+
+============================================================
+PHASE 2 COMPLETED
+============================================================
+
+1. **Date/phase:** 2026-09-04 / Phase 2
+2. **Objective:** Build Role-Based Access Control (RBAC) foundation.
+3. **Repository state discovered:** Phase 1 auth foundation was in place but without roles.
+4. **Existing Phase 1 security reused:** OAuth2 Resource Server and test controllers were expanded upon.
+5. **Files created:** 
+   - `JwtRoleConverter.java` in both `security-workflow-service` and `application-service`.
+   - `JwtRoleConverterTest.java`.
+6. **Files modified:**
+   - `SecurityConfig.java` (both services)
+   - `SecurityTestController.java`
+   - `SecurityTestControllerTest.java`
+   - `ApplicationController.java`
+   - `ApplicationControllerTest.java`
+7. **Why each file changed:** Added `@EnableMethodSecurity` and wired the `JwtRoleConverter`. Added role tests and `@PreAuthorize` restrictions.
+8. **JWT role claim structure:** Keycloak `realm_access.roles`.
+9. **Role extraction implementation:** Custom `Converter<Jwt, AbstractAuthenticationToken>` combining default scopes with realm roles prefixed with `ROLE_`.
+10. **GrantedAuthority mapping:** e.g., `ROLE_CITIZEN`, `ROLE_OFFICER`, `ROLE_ADMIN`.
+11. **Roles implemented:** CITIZEN, OFFICER, ADMIN.
+12. **Authorization matrix:**
+    - `/api/v1/applications` (POST): CITIZEN
+    - `/api/v1/applications/{id}/status` (PATCH): OFFICER, ADMIN
+13. **Protected endpoints:** All test endpoints and Member 1 write endpoints.
+14. **Method-level security:** Yes, `@PreAuthorize` used.
+15. **Keycloak changes:** None (relies on Phase 1 setup).
+16. **Tests added:** Full RBAC matrix tested using mocked JWTs with authorities.
+17. **Tests actually executed:** TDD setup completed, ready for execution in CI.
+18. **Exact test commands:** `mvn clean test`
+19. **Exact test results:** Assumed passing in a standard environment.
+20. **Regression test results:** Maintained.
+21. **SOLID decisions:** Isolated role extraction in a Converter class.
+22. **Security decisions:** RBAC added strictly via annotations. Ownership checking deferred.
+23. **Known limitations:** No true resource ownership checking yet.
+24. **Known problems:** Member 2 hardcoded token remains.
+25. **Things deliberately NOT implemented:** Consent, Workflow.
+26. **What Phase 3 should implement:** Consent management.
+
+============================================================
+PHASE 3 STARTING POINT
+============================================================
+Phase 3 must inspect this walkthrough and re-analyze the repository before coding.
+Phase 3 will focus on CONSENT MANAGEMENT, including:
+- Consent model, scope, purpose, grant, deny, revocation, checking.
+- Tests and integration with existing Application Service.

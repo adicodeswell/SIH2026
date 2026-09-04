@@ -15,4 +15,22 @@ public class SecurityTestController {
     public ResponseEntity<Map<String, Boolean>> testSecurity() {
         return ResponseEntity.ok(Map.of("authenticated", true));
     }
+
+    @GetMapping("/citizen")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('CITIZEN')")
+    public ResponseEntity<Map<String, String>> citizenAccess() {
+        return ResponseEntity.ok(Map.of("role", "CITIZEN"));
+    }
+
+    @GetMapping("/officer")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('OFFICER')")
+    public ResponseEntity<Map<String, String>> officerAccess() {
+        return ResponseEntity.ok(Map.of("role", "OFFICER"));
+    }
+
+    @GetMapping("/admin")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, String>> adminAccess() {
+        return ResponseEntity.ok(Map.of("role", "ADMIN"));
+    }
 }
