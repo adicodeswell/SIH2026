@@ -9,33 +9,54 @@
                   targetNamespace="http://bpmn.io/schema/bpmn"
                   exporter="Camunda Modeler" exporterVersion="4.12.0">
   <bpmn:process id="application-orchestration" name="Application Orchestration" isExecutable="true" camunda:historyTimeToLive="180">
-    
+
+    <!-- ==================== START ==================== -->
     <bpmn:startEvent id="StartEvent_1" name="Start">
       <bpmn:outgoing>Flow_Start</bpmn:outgoing>
     </bpmn:startEvent>
 
     <bpmn:sequenceFlow id="Flow_Start" sourceRef="StartEvent_1" targetRef="Task_InitializeApp" />
 
+    <!-- ==================== INITIALIZE APPLICATION ==================== -->
     <bpmn:serviceTask id="Task_InitializeApp" name="Initialize Application" camunda:delegateExpression="${initializeApplicationWorker}">
       <bpmn:incoming>Flow_Start</bpmn:incoming>
       <bpmn:outgoing>Flow_Initialize</bpmn:outgoing>
     </bpmn:serviceTask>
 
+    <!-- Error boundary on InitializeApp: catches APPLICATION_FETCH_FAILED -->
+    <bpmn:boundaryEvent id="BoundaryEvent_InitApp" name="App Fetch Error" attachedToRef="Task_InitializeApp">
+      <bpmn:outgoing>Flow_InitApp_Error</bpmn:outgoing>
+      <bpmn:errorEventDefinition id="ErrorDef_InitApp" errorRef="Error_AppFetchFailed" />
+    </bpmn:boundaryEvent>
+
+    <bpmn:sequenceFlow id="Flow_InitApp_Error" sourceRef="BoundaryEvent_InitApp" targetRef="Task_HandleFailure" />
+
     <bpmn:sequenceFlow id="Flow_Initialize" sourceRef="Task_InitializeApp" targetRef="Task_VerifyConsent" />
 
+    <!-- ==================== VERIFY CONSENT ==================== -->
     <bpmn:serviceTask id="Task_VerifyConsent" name="Verify Consent" camunda:delegateExpression="${verifyConsentWorker}">
       <bpmn:incoming>Flow_Initialize</bpmn:incoming>
       <bpmn:outgoing>Flow_Verify</bpmn:outgoing>
     </bpmn:serviceTask>
 
+    <!-- Error boundary on VerifyConsent: catches UNSUPPORTED_SERVICE_CODE -->
+    <bpmn:boundaryEvent id="BoundaryEvent_Consent" name="Unsupported Service Code" attachedToRef="Task_VerifyConsent">
+      <bpmn:outgoing>Flow_Consent_Error</bpmn:outgoing>
+      <bpmn:errorEventDefinition id="ErrorDef_Consent" errorRef="Error_UnsupportedServiceCode" />
+    </bpmn:boundaryEvent>
+
+    <bpmn:sequenceFlow id="Flow_Consent_Error" sourceRef="BoundaryEvent_Consent" targetRef="Task_HandleFailure" />
+
     <bpmn:sequenceFlow id="Flow_Verify" sourceRef="Task_VerifyConsent" targetRef="Gateway_Consent" />
 
+    <!-- ==================== CONSENT GATEWAY ==================== -->
     <bpmn:exclusiveGateway id="Gateway_Consent" name="Consent Valid?">
       <bpmn:incoming>Flow_Verify</bpmn:incoming>
       <bpmn:outgoing>Flow_Consent_Yes</bpmn:outgoing>
       <bpmn:outgoing>Flow_Consent_No</bpmn:outgoing>
     </bpmn:exclusiveGateway>
 
+    <!-- ==================== CONSENT GRANTED PATH ==================== -->
     <bpmn:sequenceFlow id="Flow_Consent_Yes" name="Yes" sourceRef="Gateway_Consent" targetRef="Task_FetchInterop">
       <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${consentValid == true}</bpmn:conditionExpression>
     </bpmn:sequenceFlow>
@@ -45,26 +66,77 @@
       <bpmn:outgoing>Flow_Interop</bpmn:outgoing>
     </bpmn:serviceTask>
 
-    <bpmn:sequenceFlow id="Flow_Interop" sourceRef="Task_FetchInterop" targetRef="EndEvent_Success" />
+    <!-- Error boundary on FetchInterop: catches INTEROP_FETCH_FAILED -->
+    <bpmn:boundaryEvent id="BoundaryEvent_Interop" name="Interop Fetch Error" attachedToRef="Task_FetchInterop">
+      <bpmn:outgoing>Flow_Interop_Error</bpmn:outgoing>
+      <bpmn:errorEventDefinition id="ErrorDef_Interop" errorRef="Error_InteropFetchFailed" />
+    </bpmn:boundaryEvent>
+
+    <bpmn:sequenceFlow id="Flow_Interop_Error" sourceRef="BoundaryEvent_Interop" targetRef="Task_HandleFailure" />
+
+    <bpmn:sequenceFlow id="Flow_Interop" sourceRef="Task_FetchInterop" targetRef="Task_CallbackSuccess" />
+
+    <!-- ==================== SUCCESS CALLBACK ==================== -->
+    <bpmn:serviceTask id="Task_CallbackSuccess" name="Callback Success" camunda:delegateExpression="${statusCallbackWorker}">
+      <bpmn:incoming>Flow_Interop</bpmn:incoming>
+      <bpmn:outgoing>Flow_CallbackSuccess</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_CallbackSuccess" sourceRef="Task_CallbackSuccess" targetRef="EndEvent_Success" />
 
     <bpmn:endEvent id="EndEvent_Success" name="Success">
-      <bpmn:incoming>Flow_Interop</bpmn:incoming>
+      <bpmn:incoming>Flow_CallbackSuccess</bpmn:incoming>
     </bpmn:endEvent>
 
+    <!-- ==================== CONSENT DENIED PATH ==================== -->
     <bpmn:sequenceFlow id="Flow_Consent_No" name="No" sourceRef="Gateway_Consent" targetRef="Task_SetConsentDenied">
       <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${consentValid == false}</bpmn:conditionExpression>
     </bpmn:sequenceFlow>
 
     <bpmn:serviceTask id="Task_SetConsentDenied" name="Set Consent Denied" camunda:expression="${execution.setVariable('workflowStatus', 'CONSENT_DENIED')}">
       <bpmn:incoming>Flow_Consent_No</bpmn:incoming>
+      <bpmn:outgoing>Flow_DeniedCallback</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_DeniedCallback" sourceRef="Task_SetConsentDenied" targetRef="Task_CallbackDenied" />
+
+    <bpmn:serviceTask id="Task_CallbackDenied" name="Callback Consent Denied" camunda:delegateExpression="${statusCallbackWorker}">
+      <bpmn:incoming>Flow_DeniedCallback</bpmn:incoming>
       <bpmn:outgoing>Flow_Denied</bpmn:outgoing>
     </bpmn:serviceTask>
 
-    <bpmn:sequenceFlow id="Flow_Denied" sourceRef="Task_SetConsentDenied" targetRef="EndEvent_Denied" />
+    <bpmn:sequenceFlow id="Flow_Denied" sourceRef="Task_CallbackDenied" targetRef="EndEvent_Denied" />
 
     <bpmn:endEvent id="EndEvent_Denied" name="Consent Denied">
       <bpmn:incoming>Flow_Denied</bpmn:incoming>
     </bpmn:endEvent>
 
+    <!-- ==================== FAILURE HANDLING PATH ==================== -->
+    <bpmn:serviceTask id="Task_HandleFailure" name="Handle Workflow Failure" camunda:expression="${execution.setVariable('workflowStatus', 'FAILED')}">
+      <bpmn:incoming>Flow_InitApp_Error</bpmn:incoming>
+      <bpmn:incoming>Flow_Consent_Error</bpmn:incoming>
+      <bpmn:incoming>Flow_Interop_Error</bpmn:incoming>
+      <bpmn:outgoing>Flow_FailureCallback</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_FailureCallback" sourceRef="Task_HandleFailure" targetRef="Task_CallbackFailure" />
+
+    <bpmn:serviceTask id="Task_CallbackFailure" name="Callback Failure" camunda:delegateExpression="${statusCallbackWorker}">
+      <bpmn:incoming>Flow_FailureCallback</bpmn:incoming>
+      <bpmn:outgoing>Flow_Failed</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="Flow_Failed" sourceRef="Task_CallbackFailure" targetRef="EndEvent_Failed" />
+
+    <bpmn:endEvent id="EndEvent_Failed" name="Workflow Failed">
+      <bpmn:incoming>Flow_Failed</bpmn:incoming>
+    </bpmn:endEvent>
+
   </bpmn:process>
+
+  <!-- ==================== ERROR DEFINITIONS ==================== -->
+  <bpmn:error id="Error_AppFetchFailed" name="Application Fetch Failed" errorCode="APPLICATION_FETCH_FAILED" />
+  <bpmn:error id="Error_InteropFetchFailed" name="Interop Fetch Failed" errorCode="INTEROP_FETCH_FAILED" />
+  <bpmn:error id="Error_UnsupportedServiceCode" name="Unsupported Service Code" errorCode="UNSUPPORTED_SERVICE_CODE" />
+
 </bpmn:definitions>

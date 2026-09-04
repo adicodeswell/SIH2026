@@ -27,6 +27,7 @@ camunda:
       schema-update: true
     job-execution:
       enabled: false
+    history-level: full
 
 mahasetu:
   application-service:
@@ -34,3 +35,14 @@ mahasetu:
   interoperability-service:
     url: http://localhost:8082
     token: MAHASETU_SUPER_SECRET_TOKEN_2026
+  consent-policy:
+    policies:
+      SKILL_BENEFIT:
+        dataScope: "education,employment,skills"
+        purpose: "verification"
+      SCHOLARSHIP:
+        dataScope: "education"
+        purpose: "scholarship_verification"
+      SRV-EDU:
+        dataScope: "education"
+        purpose: "verification"

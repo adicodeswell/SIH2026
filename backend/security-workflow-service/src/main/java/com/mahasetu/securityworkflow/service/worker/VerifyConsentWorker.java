@@ -1,30 +1,59 @@
 package com.mahasetu.securityworkflow.service.worker;
 
+import com.mahasetu.securityworkflow.dto.ConsentPolicy;
+import com.mahasetu.securityworkflow.exception.UnsupportedServiceCodeException;
+import com.mahasetu.securityworkflow.service.ConsentPolicyService;
 import com.mahasetu.securityworkflow.service.ConsentService;
+import org.camunda.bpm.engine.delegate.BpmnError;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.camunda.bpm.engine.delegate.JavaDelegate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
 public class VerifyConsentWorker implements JavaDelegate {
 
-    private final ConsentService consentService;
+    private static final Logger log = LoggerFactory.getLogger(VerifyConsentWorker.class);
 
-    public VerifyConsentWorker(ConsentService consentService) {
+    private final ConsentService consentService;
+    private final ConsentPolicyService consentPolicyService;
+
+    public VerifyConsentWorker(ConsentService consentService, ConsentPolicyService consentPolicyService) {
         this.consentService = consentService;
+        this.consentPolicyService = consentPolicyService;
     }
 
     @Override
     public void execute(DelegateExecution execution) throws Exception {
         String citizenId = (String) execution.getVariable("citizenId");
-        
-        // In a real scenario, this would be derived dynamically from the application type / service code
-        // For Phase 5, we hardcode the required dataScope and purpose based on the workflow requirements
-        String dataScope = "education,employment,skills";
-        String purpose = "verification";
+        String serviceCode = (String) execution.getVariable("serviceCode");
+        String applicationId = (String) execution.getVariable("applicationId");
+
+        log.info("VerifyConsentWorker: checking consent for applicationId={}, citizenId={}, serviceCode={}",
+                applicationId, citizenId, serviceCode);
+
+        // Dynamically resolve consent policy from configuration
+        ConsentPolicy policy;
+        try {
+            policy = consentPolicyService.getPolicy(serviceCode);
+        } catch (UnsupportedServiceCodeException e) {
+            log.error("VerifyConsentWorker: unsupported serviceCode={} for applicationId={}", serviceCode, applicationId);
+            execution.setVariable("failureReason", "Unsupported service code: " + serviceCode);
+            throw new BpmnError("UNSUPPORTED_SERVICE_CODE", "No consent policy for service code: " + serviceCode);
+        }
+
+        String dataScope = policy.getDataScope();
+        String purpose = policy.getPurpose();
+
+        log.info("VerifyConsentWorker: resolved policy for serviceCode={}: dataScope={}, purpose={}",
+                serviceCode, dataScope, purpose);
 
         boolean consentValid = consentService.checkConsent(citizenId, dataScope, purpose);
-        
+
         execution.setVariable("consentValid", consentValid);
+
+        log.info("VerifyConsentWorker: consent check result for applicationId={}: consentValid={}",
+                applicationId, consentValid);
     }
 }

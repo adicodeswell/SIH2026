@@ -370,9 +370,133 @@ PHASE 5 COMPLETED
     - Asynchronous continuation / retry policies.
     - Workflow completion callbacks to Member 1.
 
-19. **What Phase 6 should implement:**
-    - Dynamic consent scope mapping based on application service code.
-    - Error handling / compensation flows in BPMN.
-    - Workflow status callbacks to Member 1.
-    - Service-to-service authentication (mTLS or OAuth2 client credentials).
-    - Observability (Camunda cockpit / metrics).
+373: 19. **What Phase 6 should implement:**
+374:     - Dynamic consent scope mapping based on application service code.
+375:     - Error handling / compensation flows in BPMN.
+376:     - Workflow status callbacks to Member 1.
+377:     - Service-to-service authentication (mTLS or OAuth2 client credentials).
+378:     - Observability (Camunda cockpit / metrics).
+379: 
+380: ============================================================
+381: PHASE 6 COMPLETED
+382: ============================================================
+383: 
+384: 1. **Date/phase:** 2026-09-04 / Phase 6
+385: 2. **Objective:** Workflow Hardening — Dynamic Consent Policy, BPMN Error Boundary Event Handling, Workflow Status Callbacks, Observability, and Production-Grade Resilience.
+386: 3. **Hardened Architecture:**
+387:    ```
+388:                       POST /internal/v1/workflows
+389:    Citizen / M1 ──────────────────────────────────────> Security-Workflow-Service (M3)
+390:                                                                   │
+391:                                                          Camunda BPMN Engine
+392:                                                                   │
+393:                       ┌───────────────────────────────────────────┴───────────────────────────────────────────┐
+394:                       │                                                                                       │
+395:                       ▼                                                                                       ▼
+396:              InitializeApplication                                                                    HandleFailure
+397:              (M1: GET application)                                                                    (Sets status=FAILED)
+398:                  │             │ [APPLICATION_FETCH_FAILED]                                                  │
+399:                  ▼             └─────────────────────────────────────────────────────────────┐               ▼
+400:              VerifyConsent                                                                   │       CallbackFailure
+401:              (ConsentPolicyService: dynamic scope/purpose)                                   │       (POST status callback)
+402:                  │             │ [UNSUPPORTED_SERVICE_CODE]                                  │               │
+403:                  ▼             └───────────────────────────────────────────────┐             │               ▼
+404:              [Consent Valid?]                                                  │             │         EndEvent_Failed
+405:             /                \                                                 │             │
+406:       (Yes)/                  \(No)                                            │             │
+407:           ▼                    ▼                                               │             │
+408:    FetchInterop         SetConsentDenied                                       │             │
+409:    (M2 REST client)     (status=CONSENT_DENIED)                                │             │
+410:        │       │                      │                                        │             │
+411:        │       │ [INTEROP_FETCH_FAILED]                                        │             │
+412:        │       └───────────────────────────────────────────────────────────────┼─────────────┘
+413:        ▼                              ▼                                        │
+414:    CallbackSuccess            CallbackDenied                                   │
+415:    (POST status callback)     (POST status callback)                           │
+416:        │                              │                                        │
+417:        ▼                              ▼                                        │
+418:    EndEvent_Success           EndEvent_Denied                                  │
+419:    ```
+420: 
+421: 4. **Files created:**
+422:    - `src/main/java/com/mahasetu/securityworkflow/dto/ConsentPolicy.java` — DTO encapsulating `dataScope` and `purpose` per service code.
+423:    - `src/main/java/com/mahasetu/securityworkflow/config/ConsentPolicyProperties.java` — `@ConfigurationProperties(prefix = "mahasetu.consent-policy")` binding service code policies from YAML.
+424:    - `src/main/java/com/mahasetu/securityworkflow/exception/UnsupportedServiceCodeException.java` — Domain exception thrown when an unrecognized service code is encountered.
+425:    - `src/main/java/com/mahasetu/securityworkflow/service/ConsentPolicyService.java` — Configuration-driven policy lookup enforcing default-deny for unconfigured service codes.
+426:    - `src/main/java/com/mahasetu/securityworkflow/dto/WorkflowStatusCallback.java` — Payload DTO carrying `applicationId`, `processInstanceId`, `status`, and `failureReason`.
+427:    - `src/main/java/com/mahasetu/securityworkflow/client/WorkflowStatusClient.java` — HTTP client delivering workflow outcome callbacks to Application Service; resilient against network errors.
+428:    - `src/main/java/com/mahasetu/securityworkflow/service/worker/StatusCallbackWorker.java` — Camunda `JavaDelegate` dispatching status callbacks at workflow terminal points.
+429:    - `src/test/java/com/mahasetu/securityworkflow/service/ConsentPolicyServiceTest.java` — Unit tests for consent policy resolution and default-deny enforcement (4 tests).
+430:    - `src/test/java/com/mahasetu/securityworkflow/client/WorkflowStatusClientTest.java` — Unit tests for callback construction, HTTP dispatch, and error-swallowing resilience (3 tests).
+431: 
+432: 5. **Files modified:**
+433:    - `src/main/java/com/mahasetu/securityworkflow/service/worker/InitializeApplicationWorker.java` — Wrapped HTTP call; throws Camunda `BpmnError("APPLICATION_FETCH_FAILED")` on failure.
+434:    - `src/main/java/com/mahasetu/securityworkflow/service/worker/VerifyConsentWorker.java` — Injected `ConsentPolicyService` for dynamic lookup; throws `BpmnError("UNSUPPORTED_SERVICE_CODE")` on unknown service codes.
+435:    - `src/main/java/com/mahasetu/securityworkflow/service/worker/InteroperabilityWorker.java` — Wrapped HTTP call; throws `BpmnError("INTEROP_FETCH_FAILED")` on failure.
+436:    - `src/main/java/com/mahasetu/securityworkflow/service/WorkflowService.java` — Added SLF4J structured logging for process lifecycle (start, validation, instance creation).
+437:    - `src/main/resources/bpmn/application-orchestration.bpmn` — Added error boundary events, shared failure handler path, and dedicated status callback tasks for SUCCESS, CONSENT_DENIED, and FAILED.
+438:    - `src/main/resources/application.yml` — Configured service policies (`SKILL_BENEFIT`, `SCHOLARSHIP`, `SRV-EDU`), expanded Actuator endpoints (`health,info,metrics,prometheus`), set `camunda.bpm.history-level: full`, and structured logging.
+439:    - `src/test/resources/application.yml` — Aligned test config with consent policies and `history-level: full`.
+440:    - `src/test/java/com/mahasetu/securityworkflow/workflow/ApplicationOrchestrationWorkflowTest.java` — Extended integration suite to cover full 5-outcome matrix with WireMock.
+441: 
+442: 6. **Dynamic Consent Policy Design:**
+443:    - Replaced Phase 5's hardcoded scopes (`"education,employment,skills"`) with a configuration-driven lookup.
+444:    - Default-deny architecture: Any unconfigured service code immediately fails verification with `UNSUPPORTED_SERVICE_CODE` rather than granting permissive access.
+445:    - Pre-configured service mappings:
+446:      - `SKILL_BENEFIT`: `dataScope="education,employment,skills"`, `purpose="verification"`
+447:      - `SCHOLARSHIP`: `dataScope="education"`, `purpose="scholarship_verification"`
+448:      - `SRV-EDU`: `dataScope="education"`, `purpose="verification"`
+449: 
+450: 7. **BPMN Error Boundaries & Failure Handling:**
+451:    - Boundary events on all remote tasks catch specific error codes (`APPLICATION_FETCH_FAILED`, `UNSUPPORTED_SERVICE_CODE`, `INTEROP_FETCH_FAILED`).
+452:    - Errors are routed to `Task_HandleFailure` which records `workflowStatus = "FAILED"`, invokes `Task_CallbackFailure`, and completes cleanly at `EndEvent_Failed`.
+453:    - Prevents unhandled exceptions from leaving processes stuck in inconsistent Camunda engine states.
+454: 
+455: 8. **Workflow Status Callbacks:**
+456:    - Dispatches status notifications to `POST /internal/v1/applications/{id}/workflow-status`.
+457:    - Out-of-process callback failures are caught and logged, preventing recursive workflow failures.
+458:    - Contains zero secrets or PII: only `applicationId`, `processInstanceId`, `status`, and `failureReason`.
+459: 
+460: 9. **Observability:**
+461:    - Actuator endpoints exposed: `health`, `info`, `metrics`, `prometheus`.
+462:    - Camunda history level upgraded to `full` to retain complete audit trails of variable modifications and activity instances.
+463:    - Structured SLF4J logging implemented across `WorkflowService` and all worker delegates.
+464: 
+465: 10. **Service-to-Service Authentication Audit:**
+466:     - Keycloak realm remains an empty placeholder; OAuth2 client credentials grant cannot be configured without a running Keycloak realm.
+467:     - Interoperability token remains externalized via `${INTEROPERABILITY_SERVICE_TOKEN}`.
+468:     - Documented as technical debt for Phase 7 when Keycloak containerization is completed.
+469: 
+470: 11. **Exact test commands executed:**
+471:     - `export JAVA_HOME="/usr/lib/jvm/default" && /tmp/apache-maven-3.9.16/bin/mvn clean test -pl backend/security-workflow-service -f pom.xml`
+472:     - `export JAVA_HOME="/usr/lib/jvm/default" && /tmp/apache-maven-3.9.16/bin/mvn clean test -f pom.xml`
+473: 
+474: 12. **Exact test results:**
+475:     - **security-workflow-service**: 38/38 tests passed, 0 failures, 0 errors.
+476:       - `ConsentPolicyServiceTest`: 4/4 passed
+477:       - `WorkflowStatusClientTest`: 3/3 passed
+478:       - `ApplicationOrchestrationWorkflowTest`: 5/5 passed (Success, Denied, AppFetchFailure, InteropFailure, UnsupportedServiceCode)
+479:       - `WorkflowServiceTest`: 2/2 passed
+480:       - `WorkflowControllerTest`: 4/4 passed
+481:       - `ConsentServiceTest`: 4/4 passed
+482:       - `ConsentControllerTest`: 6/6 passed
+483:       - `SecurityTestControllerTest`: 9/9 passed
+484:       - `JwtRoleConverterTest`: 1/1 passed
+485:     - **Full Maven Reactor Build**: BUILD SUCCESS across all 6 modules:
+486:       - `MahaSetu Platform`: SUCCESS [0.184 s]
+487:       - `Application Service`: SUCCESS [16.467 s]
+488:       - `Interoperability Service`: SUCCESS [1.787 s]
+489:       - `Security Workflow Service`: SUCCESS [36.577 s]
+490:       - `Education Mock System`: SUCCESS [0.116 s]
+491:       - `Employment Mock System`: SUCCESS [0.156 s]
+492:     - Total execution time: 56.033 s.
+493: 
+494: 13. **Things deliberately NOT implemented:**
+495:     - Fake OAuth2 token generators (waiting for Keycloak realm setup in Phase 7).
+496:     - Direct modification of Member 1 or Member 2 schemas/controllers.
+497: 
+498: 14. **What Phase 7 should implement:**
+499:     - Keycloak realm configuration & client credentials flow for inter-service authentication.
+500:     - Implement receiver endpoint in Member 1 (`PATCH /api/v1/applications/{id}/status` or dedicated internal callback endpoint).
+501:     - Async continuations and retry policies (`camunda:asyncBefore="true"`) for external HTTP calls.
+

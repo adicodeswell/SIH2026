@@ -25,7 +25,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
 
 camunda:
   bpm:
@@ -34,10 +37,26 @@ camunda:
       schema-update: true
     job-execution:
       enabled: false
+    history-level: full
 
 mahasetu:
   application-service:
     url: ${APPLICATION_SERVICE_URL:http://localhost:8081}
   interoperability-service:
     url: ${INTEROPERABILITY_SERVICE_URL:http://localhost:8082}
-    token: ${MAHASETU_SUPER_SECRET_TOKEN_2026:MAHASETU_SUPER_SECRET_TOKEN_2026}
+    token: ${INTEROPERABILITY_SERVICE_TOKEN:MAHASETU_SUPER_SECRET_TOKEN_2026}
+  consent-policy:
+    policies:
+      SKILL_BENEFIT:
+        dataScope: "education,employment,skills"
+        purpose: "verification"
+      SCHOLARSHIP:
+        dataScope: "education"
+        purpose: "scholarship_verification"
+      SRV-EDU:
+        dataScope: "education"
+        purpose: "verification"
+
+logging:
+  level:
+    com.mahasetu.securityworkflow: INFO

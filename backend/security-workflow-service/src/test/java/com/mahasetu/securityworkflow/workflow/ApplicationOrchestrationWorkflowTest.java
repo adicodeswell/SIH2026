@@ -4,7 +4,6 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.mahasetu.securityworkflow.dto.ConsentRequest;
-import com.mahasetu.securityworkflow.entity.Consent;
 import com.mahasetu.securityworkflow.service.ConsentService;
 import org.camunda.bpm.engine.ProcessEngine;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
@@ -17,12 +16,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
-import java.time.LocalDate;
 import java.util.Map;
-import java.util.UUID;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 public class ApplicationOrchestrationWorkflowTest {
@@ -69,8 +67,8 @@ public class ApplicationOrchestrationWorkflowTest {
     }
 
     @Test
-    void testWorkflow_WithValidConsent_ShouldFetchInteropData() {
-        // Stub Member 1 Application Service
+    void testWorkflow_WithValidConsent_ShouldFetchInteropDataAndCallbackSuccess() {
+        // 1. Stub Member 1 Application Service GET application
         member1MockServer.stubFor(get(urlEqualTo("/api/v1/applications/" + APP_ID))
                 .willReturn(aResponse()
                         .withHeader("Content-Type", "application/json")
@@ -83,14 +81,18 @@ public class ApplicationOrchestrationWorkflowTest {
                                 }
                                 """)));
 
-        // Setup Consent
+        // 2. Stub Member 1 status callback endpoint
+        member1MockServer.stubFor(post(urlEqualTo("/internal/v1/applications/" + APP_ID + "/workflow-status"))
+                .willReturn(aResponse().withStatus(200)));
+
+        // 3. Setup Consent matching SRV-EDU policy (dataScope: education, purpose: verification)
         ConsentRequest request = new ConsentRequest();
-        request.setDataScope("education,employment,skills");
+        request.setDataScope("education");
         request.setPurpose("verification");
         request.setRequestingDepartmentId("DEPT-1");
         consentService.grantConsent(CITIZEN_ID, request);
 
-        // Stub Member 2 Interoperability Service
+        // 4. Stub Member 2 Interoperability Service
         member2MockServer.stubFor(get(urlEqualTo("/api/v1/interop/fetch/all/" + CITIZEN_ID))
                 .withHeader("Authorization", equalTo("Bearer " + TOKEN))
                 .willReturn(aResponse()
@@ -105,34 +107,40 @@ public class ApplicationOrchestrationWorkflowTest {
                                 ]
                                 """)));
 
-        // Start Workflow
+        // 5. Start Workflow
         ProcessInstance processInstance = processEngine.getRuntimeService()
                 .startProcessInstanceByKey("application-orchestration", Map.of("applicationId", APP_ID));
 
+        // 6. Verify process execution path
         assertThat(processInstance).isEnded();
-        assertThat(processInstance).hasPassed("Task_InitializeApp", "Task_VerifyConsent", "Task_FetchInterop", "EndEvent_Success");
-        
+        assertThat(processInstance).hasPassed("Task_InitializeApp", "Task_VerifyConsent", "Task_FetchInterop", "Task_CallbackSuccess", "EndEvent_Success");
+
+        // 7. Verify process variables
         Object workflowStatus = processEngine.getHistoryService().createHistoricVariableInstanceQuery()
                 .processInstanceId(processInstance.getId())
                 .variableName("workflowStatus")
                 .singleResult()
                 .getValue();
-                
-        org.junit.jupiter.api.Assertions.assertEquals("SUCCESS", workflowStatus);
-        
+        assertEquals("SUCCESS", workflowStatus);
+
         Object interopResult = processEngine.getHistoryService().createHistoricVariableInstanceQuery()
                 .processInstanceId(processInstance.getId())
                 .variableName("interoperabilityResult")
                 .singleResult()
                 .getValue();
-                
-        org.junit.jupiter.api.Assertions.assertNotNull(interopResult);
+        assertNotNull(interopResult);
+
+        // 8. Verify callback was dispatched to Member 1
+        member1MockServer.verify(postRequestedFor(urlEqualTo("/internal/v1/applications/" + APP_ID + "/workflow-status"))
+                .withRequestBody(containing("\"status\":\"SUCCESS\"")));
     }
 
     @Test
-    void testWorkflow_WithDeniedConsent_ShouldNotCallMember2() {
+    void testWorkflow_WithDeniedConsent_ShouldNotCallMember2AndCallbackDenied() {
+        String appId = "APP-NO-CONSENT";
+
         // Stub Member 1 Application Service
-        member1MockServer.stubFor(get(urlEqualTo("/api/v1/applications/APP-NO-CONSENT"))
+        member1MockServer.stubFor(get(urlEqualTo("/api/v1/applications/" + appId))
                 .willReturn(aResponse()
                         .withHeader("Content-Type", "application/json")
                         .withBody("""
@@ -144,25 +152,157 @@ public class ApplicationOrchestrationWorkflowTest {
                                 }
                                 """)));
 
+        // Stub Member 1 status callback endpoint
+        member1MockServer.stubFor(post(urlEqualTo("/internal/v1/applications/" + appId + "/workflow-status"))
+                .willReturn(aResponse().withStatus(200)));
+
         // Intentionally NOT granting consent for CIT-88888
 
         // Start Workflow
         ProcessInstance processInstance = processEngine.getRuntimeService()
-                .startProcessInstanceByKey("application-orchestration", Map.of("applicationId", "APP-NO-CONSENT"));
+                .startProcessInstanceByKey("application-orchestration", Map.of("applicationId", appId));
 
         assertThat(processInstance).isEnded();
-        assertThat(processInstance).hasPassed("Task_InitializeApp", "Task_VerifyConsent", "Task_SetConsentDenied", "EndEvent_Denied");
+        assertThat(processInstance).hasPassed("Task_InitializeApp", "Task_VerifyConsent", "Task_SetConsentDenied", "Task_CallbackDenied", "EndEvent_Denied");
         assertThat(processInstance).hasNotPassed("Task_FetchInterop");
 
         // Verify Member 2 was NEVER called
         member2MockServer.verify(0, getRequestedFor(urlPathMatching("/api/v1/interop/.*")));
-        
+
         Object workflowStatus = processEngine.getHistoryService().createHistoricVariableInstanceQuery()
                 .processInstanceId(processInstance.getId())
                 .variableName("workflowStatus")
                 .singleResult()
                 .getValue();
-                
-        org.junit.jupiter.api.Assertions.assertEquals("CONSENT_DENIED", workflowStatus);
+        assertEquals("CONSENT_DENIED", workflowStatus);
+
+        // Verify callback was dispatched to Member 1 with CONSENT_DENIED
+        member1MockServer.verify(postRequestedFor(urlEqualTo("/internal/v1/applications/" + appId + "/workflow-status"))
+                .withRequestBody(containing("\"status\":\"CONSENT_DENIED\"")));
+    }
+
+    @Test
+    void testWorkflow_WhenApplicationServiceFails_ShouldHandleFailureAndCallback() {
+        String appId = "APP-FETCH-FAIL";
+
+        // Stub Member 1 to return 500 error
+        member1MockServer.stubFor(get(urlEqualTo("/api/v1/applications/" + appId))
+                .willReturn(aResponse().withStatus(500)));
+
+        // Stub Member 1 callback endpoint
+        member1MockServer.stubFor(post(urlEqualTo("/internal/v1/applications/" + appId + "/workflow-status"))
+                .willReturn(aResponse().withStatus(200)));
+
+        // Start Workflow
+        ProcessInstance processInstance = processEngine.getRuntimeService()
+                .startProcessInstanceByKey("application-orchestration", Map.of("applicationId", appId));
+
+        assertThat(processInstance).isEnded();
+        assertThat(processInstance).hasPassed("Task_InitializeApp", "BoundaryEvent_InitApp", "Task_HandleFailure", "Task_CallbackFailure", "EndEvent_Failed");
+        assertThat(processInstance).hasNotPassed("Task_VerifyConsent");
+        assertThat(processInstance).hasNotPassed("Task_FetchInterop");
+
+        Object workflowStatus = processEngine.getHistoryService().createHistoricVariableInstanceQuery()
+                .processInstanceId(processInstance.getId())
+                .variableName("workflowStatus")
+                .singleResult()
+                .getValue();
+        assertEquals("FAILED", workflowStatus);
+
+        // Verify callback was dispatched to Member 1 with FAILED status
+        member1MockServer.verify(postRequestedFor(urlEqualTo("/internal/v1/applications/" + appId + "/workflow-status"))
+                .withRequestBody(containing("\"status\":\"FAILED\"")));
+    }
+
+    @Test
+    void testWorkflow_WhenInteropServiceFails_ShouldHandleFailureAndCallback() {
+        String appId = "APP-INTEROP-FAIL";
+        String citizenId = "CIT-INTEROP-FAIL";
+
+        // Stub Member 1
+        member1MockServer.stubFor(get(urlEqualTo("/api/v1/applications/" + appId))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                {
+                                  "applicationNumber": "APP-INTEROP-FAIL",
+                                  "status": "SUBMITTED",
+                                  "citizenId": "CIT-INTEROP-FAIL",
+                                  "serviceCode": "SRV-EDU"
+                                }
+                                """)));
+
+        member1MockServer.stubFor(post(urlEqualTo("/internal/v1/applications/" + appId + "/workflow-status"))
+                .willReturn(aResponse().withStatus(200)));
+
+        // Grant consent
+        ConsentRequest request = new ConsentRequest();
+        request.setDataScope("education");
+        request.setPurpose("verification");
+        request.setRequestingDepartmentId("DEPT-1");
+        consentService.grantConsent(citizenId, request);
+
+        // Stub Member 2 to fail with 500 error
+        member2MockServer.stubFor(get(urlEqualTo("/api/v1/interop/fetch/all/" + citizenId))
+                .willReturn(aResponse().withStatus(500)));
+
+        // Start Workflow
+        ProcessInstance processInstance = processEngine.getRuntimeService()
+                .startProcessInstanceByKey("application-orchestration", Map.of("applicationId", appId));
+
+        assertThat(processInstance).isEnded();
+        assertThat(processInstance).hasPassed("Task_InitializeApp", "Task_VerifyConsent", "Task_FetchInterop", "BoundaryEvent_Interop", "Task_HandleFailure", "Task_CallbackFailure", "EndEvent_Failed");
+
+        Object workflowStatus = processEngine.getHistoryService().createHistoricVariableInstanceQuery()
+                .processInstanceId(processInstance.getId())
+                .variableName("workflowStatus")
+                .singleResult()
+                .getValue();
+        assertEquals("FAILED", workflowStatus);
+
+        // Verify callback was dispatched to Member 1 with FAILED status
+        member1MockServer.verify(postRequestedFor(urlEqualTo("/internal/v1/applications/" + appId + "/workflow-status"))
+                .withRequestBody(containing("\"status\":\"FAILED\"")));
+    }
+
+    @Test
+    void testWorkflow_WhenServiceCodeUnsupported_ShouldHandleFailureAndCallback() {
+        String appId = "APP-UNSUPPORTED-CODE";
+        String citizenId = "CIT-UNSUPPORTED";
+
+        // Stub Member 1 with unconfigured serviceCode
+        member1MockServer.stubFor(get(urlEqualTo("/api/v1/applications/" + appId))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                {
+                                  "applicationNumber": "APP-UNSUPPORTED-CODE",
+                                  "status": "SUBMITTED",
+                                  "citizenId": "CIT-UNSUPPORTED",
+                                  "serviceCode": "UNKNOWN_SERVICE_XYZ"
+                                }
+                                """)));
+
+        member1MockServer.stubFor(post(urlEqualTo("/internal/v1/applications/" + appId + "/workflow-status"))
+                .willReturn(aResponse().withStatus(200)));
+
+        // Start Workflow
+        ProcessInstance processInstance = processEngine.getRuntimeService()
+                .startProcessInstanceByKey("application-orchestration", Map.of("applicationId", appId));
+
+        assertThat(processInstance).isEnded();
+        assertThat(processInstance).hasPassed("Task_InitializeApp", "Task_VerifyConsent", "BoundaryEvent_Consent", "Task_HandleFailure", "Task_CallbackFailure", "EndEvent_Failed");
+        assertThat(processInstance).hasNotPassed("Task_FetchInterop");
+
+        Object workflowStatus = processEngine.getHistoryService().createHistoricVariableInstanceQuery()
+                .processInstanceId(processInstance.getId())
+                .variableName("workflowStatus")
+                .singleResult()
+                .getValue();
+        assertEquals("FAILED", workflowStatus);
+
+        // Verify callback was dispatched to Member 1 with FAILED status
+        member1MockServer.verify(postRequestedFor(urlEqualTo("/internal/v1/applications/" + appId + "/workflow-status"))
+                .withRequestBody(containing("\"status\":\"FAILED\"")));
     }
 }
