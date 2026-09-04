@@ -23,6 +23,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.springframework.context.annotation.Import;
 import com.mahasetu.securityworkflow.config.SecurityConfig;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 
 @WebMvcTest(ConsentController.class)
 @Import(SecurityConfig.class)
@@ -38,10 +40,11 @@ class ConsentControllerSecurityTest {
     private ObjectMapper objectMapper;
 
     @Test
-    void testCheckConsent_PublicOrInternalAccess() throws Exception {
+    void testCheckConsent_ServiceAccess() throws Exception {
         when(consentService.checkConsent("c1", "scope", "purpose")).thenReturn(true);
 
         mockMvc.perform(get("/internal/v1/consents/check")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SERVICE")))
                 .param("citizenId", "c1")
                 .param("dataScope", "scope")
                 .param("purpose", "purpose"))
@@ -49,10 +52,30 @@ class ConsentControllerSecurityTest {
     }
 
     @Test
+    void testCheckConsent_UnauthenticatedDenied() throws Exception {
+        mockMvc.perform(get("/internal/v1/consents/check")
+                .param("citizenId", "c1")
+                .param("dataScope", "scope")
+                .param("purpose", "purpose"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void testCheckConsent_CitizenDenied() throws Exception {
+        mockMvc.perform(get("/internal/v1/consents/check")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CITIZEN")))
+                .param("citizenId", "c1")
+                .param("dataScope", "scope")
+                .param("purpose", "purpose"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void testCheckConsent_FailsIfInvalid() throws Exception {
         when(consentService.checkConsent("c1", "scope", "purpose")).thenReturn(false);
 
         mockMvc.perform(get("/internal/v1/consents/check")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SERVICE")))
                 .param("citizenId", "c1")
                 .param("dataScope", "scope")
                 .param("purpose", "purpose"))

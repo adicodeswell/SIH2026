@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 public class WorkflowController {
@@ -19,6 +20,7 @@ public class WorkflowController {
     }
 
     @PostMapping("/internal/v1/workflows")
+    @PreAuthorize("hasRole('SERVICE')")
     public ResponseEntity<?> startWorkflow(@RequestBody WorkflowStartRequest request) {
         if (request.getApplicationId() == null || request.getApplicationId().trim().isEmpty()) {
             return ResponseEntity.badRequest().body("applicationId is required");

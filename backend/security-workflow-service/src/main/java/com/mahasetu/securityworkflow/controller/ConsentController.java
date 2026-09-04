@@ -22,6 +22,7 @@ public class ConsentController {
     }
 
     @GetMapping("/internal/v1/consents/check")
+    @PreAuthorize("hasRole('SERVICE')")
     public ResponseEntity<Void> checkConsent(
             @RequestParam String citizenId,
             @RequestParam String dataScope,

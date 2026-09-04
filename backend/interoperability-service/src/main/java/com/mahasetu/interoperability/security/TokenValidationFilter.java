@@ -8,13 +8,18 @@ import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.io.IOException;
 
 @Component
 public class TokenValidationFilter implements Filter {
 
-    private static final String VALID_TOKEN = "Bearer MAHASETU_SUPER_SECRET_TOKEN_2026";
+    private final String validToken;
+
+    public TokenValidationFilter(@Value("${mahasetu.interoperability.token}") String token) {
+        this.validToken = "Bearer " + token;
+    }
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
@@ -24,7 +29,7 @@ public class TokenValidationFilter implements Filter {
 
         String authHeader = httpRequest.getHeader("Authorization");
 
-        if (authHeader == null || !authHeader.equals(VALID_TOKEN)) {
+        if (authHeader == null || !authHeader.equals(validToken)) {
             httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             httpResponse.getWriter().write("Unauthorized: Invalid or missing token.");
             return;

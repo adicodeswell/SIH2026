@@ -3,8 +3,10 @@ package com.mahasetu.application.service;
 import com.mahasetu.application.dto.ApplicationResponse;
 import com.mahasetu.application.dto.CreateApplicationRequest;
 import com.mahasetu.application.dto.UpdateApplicationStatusRequest;
+import com.mahasetu.application.dto.WorkflowStatusCallbackRequest;
 import com.mahasetu.application.entity.*;
 import com.mahasetu.application.exception.ValidationException;
+import com.mahasetu.application.integration.WorkflowClient;
 import com.mahasetu.application.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +32,8 @@ public class ApplicationServiceTest {
     private ServiceRepository serviceRepository;
     @Mock
     private ApplicationEventRepository eventRepository;
+    @Mock
+    private WorkflowClient workflowClient;
 
     @InjectMocks
     private ApplicationService applicationService;
@@ -50,6 +54,7 @@ public class ApplicationServiceTest {
         serviceEntity.setServiceCode("SKILL_BENEFIT");
         serviceEntity.setActive(true);
         serviceEntity.setDepartment(dept);
+        serviceEntity.setWorkflowKey("application-orchestration");
 
         existingApp = new Application();
         existingApp.setApplicationNumber("MH-2026-000001");
@@ -74,7 +79,26 @@ public class ApplicationServiceTest {
         assertNotNull(res);
         assertEquals("MH-2026-000001", res.getApplicationNumber());
         assertEquals(ApplicationStatus.SUBMITTED, res.getStatus());
-        verify(eventRepository, times(1)).save(any(ApplicationEvent.class));
+        verify(workflowClient).startWorkflow("MH-2026-000001", "application-orchestration");
+        verify(eventRepository, times(2)).save(any(ApplicationEvent.class));
+    }
+
+    @Test
+    void testCreateApplication_WorkflowStartFailureMarksApplicationFailed() {
+        CreateApplicationRequest req = new CreateApplicationRequest();
+        req.setCitizenId("MH1001");
+        req.setServiceCode("SKILL_BENEFIT");
+
+        when(citizenRepository.findByCitizenId("MH1001")).thenReturn(Optional.of(citizen));
+        when(serviceRepository.findByServiceCode("SKILL_BENEFIT")).thenReturn(Optional.of(serviceEntity));
+        when(applicationRepository.save(any(Application.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        doThrow(new RuntimeException("workflow unavailable"))
+                .when(workflowClient).startWorkflow(anyString(), eq("application-orchestration"));
+
+        ApplicationResponse res = applicationService.createApplication(req);
+
+        assertEquals(ApplicationStatus.FAILED, res.getStatus());
+        verify(eventRepository, times(2)).save(any(ApplicationEvent.class));
     }
     
     @Test
@@ -124,5 +148,69 @@ public class ApplicationServiceTest {
         when(applicationRepository.findByApplicationNumber("MH-2026-000001")).thenReturn(Optional.of(existingApp));
 
         assertThrows(ValidationException.class, () -> applicationService.updateApplicationStatus("MH-2026-000001", req));
+    }
+
+    @Test
+    void testWorkflowCallbackPendingReviewUpdatesStatusAndEvent() {
+        WorkflowStatusCallbackRequest req = new WorkflowStatusCallbackRequest();
+        req.setApplicationId("MH-2026-000001");
+        req.setProcessInstanceId("proc-1");
+        req.setStatus("PENDING_OFFICER_REVIEW");
+
+        when(applicationRepository.findByApplicationNumber("MH-2026-000001")).thenReturn(Optional.of(existingApp));
+        when(applicationRepository.save(any(Application.class))).thenReturn(existingApp);
+
+        ApplicationResponse response = applicationService.applyWorkflowStatusCallback("MH-2026-000001", req);
+
+        assertEquals(ApplicationStatus.PENDING_OFFICER_REVIEW, response.getStatus());
+        verify(eventRepository).save(argThat(event -> "WORKFLOW_PENDING_REVIEW".equals(event.getEventType())));
+    }
+
+    @Test
+    void testWorkflowCallbackApprovedFromPendingReview() {
+        existingApp.setStatus(ApplicationStatus.PENDING_OFFICER_REVIEW);
+        WorkflowStatusCallbackRequest req = new WorkflowStatusCallbackRequest();
+        req.setApplicationId("MH-2026-000001");
+        req.setProcessInstanceId("proc-1");
+        req.setStatus("APPROVED");
+        req.setOfficerId("officer_1");
+
+        when(applicationRepository.findByApplicationNumber("MH-2026-000001")).thenReturn(Optional.of(existingApp));
+        when(applicationRepository.save(any(Application.class))).thenReturn(existingApp);
+
+        ApplicationResponse response = applicationService.applyWorkflowStatusCallback("MH-2026-000001", req);
+
+        assertEquals(ApplicationStatus.APPROVED, response.getStatus());
+        verify(eventRepository).save(argThat(event -> "WORKFLOW_APPROVED".equals(event.getEventType())));
+    }
+
+    @Test
+    void testWorkflowCallbackDuplicateDoesNotCreateDuplicateEvent() {
+        existingApp.setStatus(ApplicationStatus.PENDING_OFFICER_REVIEW);
+        WorkflowStatusCallbackRequest req = new WorkflowStatusCallbackRequest();
+        req.setApplicationId("MH-2026-000001");
+        req.setProcessInstanceId("proc-1");
+        req.setStatus("PENDING_OFFICER_REVIEW");
+
+        when(applicationRepository.findByApplicationNumber("MH-2026-000001")).thenReturn(Optional.of(existingApp));
+
+        ApplicationResponse response = applicationService.applyWorkflowStatusCallback("MH-2026-000001", req);
+
+        assertEquals(ApplicationStatus.PENDING_OFFICER_REVIEW, response.getStatus());
+        verify(applicationRepository, never()).save(any(Application.class));
+        verify(eventRepository, never()).save(any(ApplicationEvent.class));
+    }
+
+    @Test
+    void testWorkflowCallbackInvalidTransitionRejected() {
+        existingApp.setStatus(ApplicationStatus.APPROVED);
+        WorkflowStatusCallbackRequest req = new WorkflowStatusCallbackRequest();
+        req.setApplicationId("MH-2026-000001");
+        req.setProcessInstanceId("proc-1");
+        req.setStatus("PENDING_OFFICER_REVIEW");
+
+        when(applicationRepository.findByApplicationNumber("MH-2026-000001")).thenReturn(Optional.of(existingApp));
+
+        assertThrows(ValidationException.class, () -> applicationService.applyWorkflowStatusCallback("MH-2026-000001", req));
     }
 }

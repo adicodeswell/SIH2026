@@ -19,6 +19,16 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: http://localhost:8080/realms/mahasetu
+      client:
+        registration:
+          security-workflow-service:
+            provider: keycloak
+            authorization-grant-type: client_credentials
+            client-id: test-client
+            client-secret: test-secret
+        provider:
+          keycloak:
+            token-uri: http://localhost:8080/realms/mahasetu/protocol/openid-connect/token
 
 camunda:
   bpm:

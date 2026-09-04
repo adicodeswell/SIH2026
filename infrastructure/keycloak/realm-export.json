@@ -1,0 +1,121 @@
+{
+  "id": "mahasetu",
+  "realm": "mahasetu",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "SERVICE",
+        "description": "Service-to-service internal communication role"
+      },
+      {
+        "name": "CITIZEN",
+        "description": "Citizen role for public portal access"
+      },
+      {
+        "name": "OFFICER",
+        "description": "Government officer review role"
+      },
+      {
+        "name": "ADMIN",
+        "description": "Platform administrator role"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "application-service",
+      "name": "Application Service S2S Client",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev-application-service-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "publicClient": false,
+      "protocol": "openid-connect"
+    },
+    {
+      "clientId": "security-workflow-service",
+      "name": "Security & Workflow Service S2S Client",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev-security-workflow-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "publicClient": false,
+      "protocol": "openid-connect"
+    },
+    {
+      "clientId": "frontend-portal",
+      "name": "MahaSetu Web Frontend",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "*"
+      ],
+      "protocol": "openid-connect"
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-application-service",
+      "enabled": true,
+      "serviceAccountClientId": "application-service",
+      "realmRoles": [
+        "SERVICE"
+      ]
+    },
+    {
+      "username": "service-account-security-workflow-service",
+      "enabled": true,
+      "serviceAccountClientId": "security-workflow-service",
+      "realmRoles": [
+        "SERVICE"
+      ]
+    },
+    {
+      "username": "MH1001",
+      "enabled": true,
+      "email": "citizen@mahasetu.gov.in",
+      "firstName": "Rahul",
+      "lastName": "Sharma",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "citizen123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "CITIZEN"
+      ]
+    },
+    {
+      "username": "officer_123",
+      "enabled": true,
+      "email": "officer@mahasetu.gov.in",
+      "firstName": "Suresh",
+      "lastName": "Patil",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "officer123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "OFFICER"
+      ]
+    }
+  ]
+}

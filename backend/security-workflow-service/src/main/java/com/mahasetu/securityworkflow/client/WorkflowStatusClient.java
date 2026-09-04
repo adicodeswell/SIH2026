@@ -21,12 +21,15 @@ public class WorkflowStatusClient {
 
     private final RestTemplate restTemplate;
     private final String applicationServiceUrl;
+    private final ServiceTokenProvider serviceTokenProvider;
 
     public WorkflowStatusClient(
             RestTemplate restTemplate,
-            @Value("${mahasetu.application-service.url}") String applicationServiceUrl) {
+            @Value("${mahasetu.application-service.url}") String applicationServiceUrl,
+            ServiceTokenProvider serviceTokenProvider) {
         this.restTemplate = restTemplate;
         this.applicationServiceUrl = applicationServiceUrl;
+        this.serviceTokenProvider = serviceTokenProvider;
     }
 
     /**
@@ -45,6 +48,7 @@ public class WorkflowStatusClient {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Authorization", serviceTokenProvider.getAuthorizationHeader());
             HttpEntity<WorkflowStatusCallback> entity = new HttpEntity<>(callback, headers);
 
             restTemplate.postForEntity(url, entity, Void.class);

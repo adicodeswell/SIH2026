@@ -1,0 +1,95 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: mahasetu
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mahasetu"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    volumes:
+      - ./infrastructure/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    ports:
+      - "8080:8080"
+
+  mock-systems:
+    build:
+      context: .
+      dockerfile: backend/mock-systems/Dockerfile
+    ports:
+      - "8091:8091"
+
+  interoperability-service:
+    build:
+      context: .
+      dockerfile: backend/interoperability-service/Dockerfile
+    environment:
+      INTEROPERABILITY_SERVICE_TOKEN: ${INTEROPERABILITY_SERVICE_TOKEN:-dev-interop-token}
+    ports:
+      - "8082:8082"
+    depends_on:
+      - mock-systems
+
+  application-service:
+    build:
+      context: .
+      dockerfile: backend/application-service/docker/Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: mahasetu
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: mahasetu
+      WORKFLOW_SERVICE_URL: http://security-workflow-service:8083
+      APPLICATION_SERVICE_CLIENT_ID: application-service
+      APPLICATION_SERVICE_CLIENT_SECRET: ${APPLICATION_SERVICE_CLIENT_SECRET:-dev-application-service-secret}
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+
+  security-workflow-service:
+    build:
+      context: .
+      dockerfile: backend/security-workflow-service/Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: mahasetu
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/mahasetu
+      KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/mahasetu/protocol/openid-connect/token
+      APPLICATION_SERVICE_URL: http://application-service:8081
+      INTEROPERABILITY_SERVICE_URL: http://interoperability-service:8082
+      INTEROPERABILITY_SERVICE_TOKEN: ${INTEROPERABILITY_SERVICE_TOKEN:-dev-interop-token}
+      SECURITY_WORKFLOW_CLIENT_ID: security-workflow-service
+      SECURITY_WORKFLOW_CLIENT_SECRET: ${SECURITY_WORKFLOW_CLIENT_SECRET:-dev-security-workflow-secret}
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      application-service:
+        condition: service_started
+      interoperability-service:
+        condition: service_started

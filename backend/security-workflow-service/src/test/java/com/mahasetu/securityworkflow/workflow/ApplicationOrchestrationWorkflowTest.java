@@ -9,6 +9,7 @@ import com.mahasetu.securityworkflow.entity.AuditLog;
 import com.mahasetu.securityworkflow.service.AuditService;
 import com.mahasetu.securityworkflow.service.ConsentService;
 import com.mahasetu.securityworkflow.service.OfficerTaskService;
+import com.mahasetu.securityworkflow.client.ServiceTokenProvider;
 import org.camunda.bpm.engine.ProcessEngine;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.camunda.bpm.engine.task.Task;
@@ -20,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.boot.test.mock.mockito.MockBean;
 
 import java.util.List;
 import java.util.Map;
@@ -27,6 +29,7 @@ import java.util.Map;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
 
 @SpringBootTest
 public class ApplicationOrchestrationWorkflowTest {
@@ -45,6 +48,9 @@ public class ApplicationOrchestrationWorkflowTest {
 
     @Autowired
     private AuditService auditService;
+
+    @MockBean
+    private ServiceTokenProvider serviceTokenProvider;
 
     private static final String APP_ID = "APP-12345";
     private static final String CITIZEN_ID = "CIT-99999";
@@ -76,6 +82,7 @@ public class ApplicationOrchestrationWorkflowTest {
     void setup() {
         member1MockServer.resetAll();
         member2MockServer.resetAll();
+        when(serviceTokenProvider.getAuthorizationHeader()).thenReturn("Bearer service-token");
     }
 
     private void setupApplicationAndInteropMocks(String appId, String citizenId) {

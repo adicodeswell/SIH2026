@@ -20,6 +20,16 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/mahasetu}
+      client:
+        registration:
+          security-workflow-service:
+            provider: keycloak
+            authorization-grant-type: client_credentials
+            client-id: ${SECURITY_WORKFLOW_CLIENT_ID:security-workflow-service}
+            client-secret: ${SECURITY_WORKFLOW_CLIENT_SECRET:}
+        provider:
+          keycloak:
+            token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8080/realms/mahasetu/protocol/openid-connect/token}
 
 management:
   endpoints:

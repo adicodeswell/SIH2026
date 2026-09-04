@@ -21,13 +21,16 @@ class WorkflowStatusClientTest {
 
     @Mock
     private RestTemplate restTemplate;
+    @Mock
+    private ServiceTokenProvider serviceTokenProvider;
 
     private WorkflowStatusClient client;
     private static final String APP_SERVICE_URL = "http://localhost:8081";
 
     @BeforeEach
     void setUp() {
-        client = new WorkflowStatusClient(restTemplate, APP_SERVICE_URL);
+        when(serviceTokenProvider.getAuthorizationHeader()).thenReturn("Bearer service-token");
+        client = new WorkflowStatusClient(restTemplate, APP_SERVICE_URL, serviceTokenProvider);
     }
 
     @Test
@@ -52,6 +55,7 @@ class WorkflowStatusClientTest {
         assertEquals("http://localhost:8081/internal/v1/applications/APP-1001/workflow-status", urlCaptor.getValue());
         HttpEntity<WorkflowStatusCallback> sentEntity = entityCaptor.getValue();
         assertEquals(MediaType.APPLICATION_JSON, sentEntity.getHeaders().getContentType());
+        assertEquals("Bearer service-token", sentEntity.getHeaders().getFirst("Authorization"));
         assertEquals("SUCCESS", sentEntity.getBody().getStatus());
         assertEquals("proc-inst-123", sentEntity.getBody().getProcessInstanceId());
         assertNull(sentEntity.getBody().getFailureReason());

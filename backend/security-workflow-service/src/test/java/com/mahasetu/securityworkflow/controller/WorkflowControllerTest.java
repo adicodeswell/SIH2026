@@ -12,12 +12,14 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.springframework.context.annotation.Import;
 import com.mahasetu.securityworkflow.config.SecurityConfig;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 @WebMvcTest(WorkflowController.class)
 @Import(SecurityConfig.class)
@@ -41,6 +43,7 @@ public class WorkflowControllerTest {
         when(workflowService.startWorkflow("APP-123", "common-review")).thenReturn("PI-456");
 
         mockMvc.perform(post("/internal/v1/workflows")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SERVICE")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -53,6 +56,7 @@ public class WorkflowControllerTest {
         request.setWorkflowKey("common-review");
 
         mockMvc.perform(post("/internal/v1/workflows")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SERVICE")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -64,6 +68,7 @@ public class WorkflowControllerTest {
         request.setApplicationId("APP-123");
 
         mockMvc.perform(post("/internal/v1/workflows")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SERVICE")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -79,8 +84,34 @@ public class WorkflowControllerTest {
                 .thenThrow(new IllegalArgumentException("Unknown or undeployed workflowKey: unknown-workflow"));
 
         mockMvc.perform(post("/internal/v1/workflows")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SERVICE")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    public void testStartWorkflow_Unauthenticated_ReturnsUnauthorized() throws Exception {
+        WorkflowStartRequest request = new WorkflowStartRequest();
+        request.setApplicationId("APP-123");
+        request.setWorkflowKey("common-review");
+
+        mockMvc.perform(post("/internal/v1/workflows")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    public void testStartWorkflow_CitizenRole_ReturnsForbidden() throws Exception {
+        WorkflowStartRequest request = new WorkflowStartRequest();
+        request.setApplicationId("APP-123");
+        request.setWorkflowKey("common-review");
+
+        mockMvc.perform(post("/internal/v1/workflows")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CITIZEN")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
     }
 }
