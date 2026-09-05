@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Officer Portal — MahaSetu</title>
+  <meta name="description" content="MahaSetu Officer Portal — Review applications and manage workflow tasks."/>
+  <link rel="stylesheet" href="../css/main.css"/>
+  <style>
+    /* Officer portal extra styles */
+    .login-screen {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 40px 24px;
+    }
+    .login-box {
+      width: 100%; max-width: 440px;
+      text-align: center;
+    }
+    .login-logo {
+      width: 64px; height: 64px; border-radius: 16px;
+      background: linear-gradient(135deg, #0ea5e9, var(--sky));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; margin: 0 auto 20px;
+      box-shadow: 0 8px 30px rgba(56,189,248,0.4);
+    }
+    .login-card { text-align: left; margin-top: 24px; border-color: rgba(56,189,248,0.3); }
+    .stat-grid  { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 28px; }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 18px; text-align: center;
+    }
+    .stat-number { font-size: 2rem; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+    .stat-label  { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-card.primary   .stat-number { color: var(--sky); }
+    .stat-card.info      .stat-number { color: var(--emerald); }
+
+    .main-content { max-width: 1100px; margin: 0 auto; padding: 24px; }
+
+    /* Info Block for Review */
+    .info-block {
+      background: rgba(255,255,255,0.04);
+      border-radius: var(--radius-sm);
+      padding: 16px; margin-bottom: 16px;
+      border: 1px solid var(--border);
+    }
+    .info-item {
+      display: flex; justify-content: space-between;
+      margin-bottom: 8px; font-size: 0.9rem;
+    }
+    .info-item:last-child { margin-bottom: 0; }
+    .info-label { color: var(--text-secondary); }
+    .info-value { font-weight: 600; color: var(--text-primary); text-align: right;}
+  </style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+<div id="toast-container"></div>
+
+<!-- Navbar -->
+<nav class="navbar" style="border-bottom-color: rgba(56,189,248,0.3);">
+  <div class="navbar-inner">
+    <a class="navbar-brand" href="../">
+      <div class="logo-icon" style="background: linear-gradient(135deg, #0ea5e9, var(--sky));">🏛️</div>
+      MahaSetu <span style="font-size:0.9rem;font-weight:400;margin-left:8px;color:var(--text-secondary);">Officer</span>
+    </a>
+    <div class="navbar-nav" id="main-nav" style="display:none;">
+      <a class="nav-link" data-page="dashboard">🏠 Task Dashboard</a>
+    </div>
+    <div class="nav-user" id="nav-user"></div>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════
+     PAGE: Login
+════════════════════════════════════════════════════════ -->
+<div class="page active" id="page-login">
+  <div class="login-screen">
+    <div class="login-box">
+      <div class="login-logo">🔍</div>
+      <h2>Officer Portal</h2>
+      <p style="color:var(--text-secondary);margin-top:8px;">Secure access for authorized government officials to review citizen applications.</p>
+
+      <div class="card login-card mt-24">
+        <div class="form-group">
+          <label class="form-label">Officer Name (Demo)</label>
+          <input class="form-control" id="login-name" value="Priya Deshmukh" placeholder="Your name"/>
+        </div>
+        <button class="btn btn-primary" style="width:100%; background: linear-gradient(135deg, #0ea5e9, var(--sky)); box-shadow: 0 4px 15px rgba(56,189,248,0.4);" onclick="doLogin()">
+          🔐 Login as Officer
+        </button>
+        <div style="margin-top:14px;text-align:center;">
+          <a href="../citizen/?demo=true" style="font-size:0.82rem;color:var(--text-muted);">Switch to Citizen Portal →</a>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;padding:14px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.2);border-radius:var(--radius-md);font-size:0.8rem;color:var(--sky);">
+        ℹ️ <strong>Demo Mode:</strong> No real Keycloak required. A mock JWT with ROLE_OFFICER is generated automatically.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     PAGE: Dashboard
+════════════════════════════════════════════════════════ -->
+<div class="page" id="page-dashboard">
+  <div class="main-content">
+    <div style="margin-bottom:28px;">
+      <h2>Welcome, <span id="dash-username" class="gradient-text" style="background: linear-gradient(135deg, #0ea5e9, var(--sky)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Officer</span></h2>
+      <p style="color:var(--text-secondary);margin-top:6px;">Manage your pending application reviews and tasks.</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="stat-grid">
+      <div class="stat-card primary">
+        <div class="stat-number" id="stat-total-pending">0</div>
+        <div class="stat-label">Total Pending Tasks (Global)</div>
+      </div>
+      <div class="stat-card info">
+        <div class="stat-number" id="stat-my-tasks">0</div>
+        <div class="stat-label">Tasks Claimed By Me</div>
+      </div>
+    </div>
+
+    <!-- Tasks Table -->
+    <div class="section-header">
+      <div>
+        <h3 class="section-title">Pending Review Tasks</h3>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="loadDashboard()">🔄 Refresh</button>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Application No.</th>
+            <th>Service Code</th>
+            <th>Task Status</th>
+            <th>Created</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="tasks-tbody">
+          <tr><td colspan="5" style="text-align:center;padding:30px;">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     MODAL: Review Task
+════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="review-modal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header">
+      <h3>Review Application</h3>
+      <button class="modal-close" onclick="closeReviewModal()">✕</button>
+    </div>
+    
+    <div class="info-block">
+      <div class="info-item">
+        <span class="info-label">Application Number</span>
+        <span class="info-value" id="review-app-num"></span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Service Code</span>
+        <span class="info-value" id="review-service-code"></span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Citizen ID</span>
+        <span class="info-value" id="review-citizen-id"></span>
+      </div>
+    </div>
+
+    <div style="padding: 16px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); border-radius: var(--radius-sm); margin-bottom: 24px;">
+      <h4 style="color:var(--emerald);margin-bottom:8px;font-size:0.9rem;">Interoperability Checks (Demo)</h4>
+      <p style="font-size:0.85rem;color:var(--text-secondary);">
+        ✓ Citizen identity verified via external system.<br>
+        ✓ All automated workflow constraints satisfied.<br>
+        This application requires final human-in-the-loop signoff.
+      </p>
+    </div>
+
+    <div id="review-actions">
+       <!-- Actions injected by JS -->
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="../js/auth.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/officer.js"></script>
+<script>
+  // Override doLogin to use form inputs
+  const _doLogin = doLogin;
+  doLogin = async function() {
+    const nameInput = document.getElementById('login-name');
+    if (nameInput) Auth.DEMO_USERS.officer.name = nameInput.value || 'Priya Deshmukh';
+
+    const session = Auth.loginAs('officer');
+    currentUser = session.user;
+    document.getElementById('dash-username').textContent = currentUser.name;
+    updateNavUser();
+    document.getElementById('main-nav').style.display = 'flex';
+    toast(`Welcome, ${currentUser.name}!`, 'success');
+    showPage('dashboard');
+    await loadDashboard();
+  };
+</script>
+</body>
+</html>

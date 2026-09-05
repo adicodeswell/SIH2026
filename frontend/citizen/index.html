@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Citizen Portal — MahaSetu</title>
+  <meta name="description" content="MahaSetu Citizen Portal — Apply for government services, track applications, and manage consent."/>
+  <link rel="stylesheet" href="../css/main.css"/>
+  <style>
+    /* Citizen portal extra styles */
+    .login-screen {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 40px 24px;
+    }
+    .login-box {
+      width: 100%; max-width: 440px;
+      text-align: center;
+    }
+    .login-logo {
+      width: 64px; height: 64px; border-radius: 16px;
+      background: linear-gradient(135deg, var(--saffron-500), var(--gold));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; margin: 0 auto 20px;
+      box-shadow: 0 8px 30px rgba(249,115,22,0.4);
+    }
+    .login-card { text-align: left; margin-top: 24px; }
+    .stat-grid  { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
+    @media (max-width: 600px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 18px; text-align: center;
+    }
+    .stat-number { font-size: 2rem; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+    .stat-label  { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-card.primary   .stat-number { color: var(--saffron-400); }
+    .stat-card.info      .stat-number { color: var(--sky); }
+    .stat-card.success   .stat-number { color: var(--emerald); }
+    .stat-card.danger    .stat-number { color: var(--crimson); }
+
+    .main-content { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .consent-form { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: end; }
+    @media (max-width: 700px) { .consent-form { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+<div id="toast-container"></div>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a class="navbar-brand" href="../">
+      <div class="logo-icon">🏛️</div>
+      MahaSetu
+    </a>
+    <div class="navbar-nav" id="main-nav" style="display:none;">
+      <a class="nav-link" data-page="dashboard">🏠 Dashboard</a>
+      <a class="nav-link" data-page="catalog">🗂 Services</a>
+      <a class="nav-link" data-page="my-applications">📋 My Applications</a>
+      <a class="nav-link" data-page="consents">🤝 Consent</a>
+    </div>
+    <div class="nav-user" id="nav-user"></div>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════
+     PAGE: Login
+════════════════════════════════════════════════════════ -->
+<div class="page active" id="page-login">
+  <div class="login-screen">
+    <div class="login-box">
+      <div class="login-logo">👤</div>
+      <h2>Citizen Portal</h2>
+      <p style="color:var(--text-secondary);margin-top:8px;">Access government services securely with your Aadhaar-linked account.</p>
+
+      <div class="card login-card mt-24">
+        <div class="form-group">
+          <label class="form-label">Citizen ID (Demo)</label>
+          <input class="form-control" id="login-citizen-id" value="MH-CIT-2026-001" placeholder="Your Citizen ID"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Full Name (Demo)</label>
+          <input class="form-control" id="login-name" value="Ramesh Patil" placeholder="Your name"/>
+        </div>
+        <button class="btn btn-primary" style="width:100%;" onclick="doLogin()">
+          🔐 Login as Citizen
+        </button>
+        <div style="margin-top:14px;text-align:center;">
+          <a href="../officer/?demo=true" style="font-size:0.82rem;color:var(--text-muted);">Switch to Officer Portal →</a>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;padding:14px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.2);border-radius:var(--radius-md);font-size:0.8rem;color:var(--sky);">
+        ℹ️ <strong>Demo Mode:</strong> No real Keycloak required. A mock JWT is generated automatically for the demo flow.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     PAGE: Dashboard
+════════════════════════════════════════════════════════ -->
+<div class="page" id="page-dashboard">
+  <div class="main-content">
+    <div style="margin-bottom:28px;">
+      <h2>Welcome back, <span id="dash-username" class="gradient-text">Citizen</span> 👋</h2>
+      <p style="color:var(--text-secondary);margin-top:6px;">Here's an overview of your government service applications.</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="stat-grid">
+      <div class="stat-card primary">
+        <div class="stat-number" id="stat-total">0</div>
+        <div class="stat-label">Total Applications</div>
+      </div>
+      <div class="stat-card info">
+        <div class="stat-number" id="stat-pending">0</div>
+        <div class="stat-label">In Progress</div>
+      </div>
+      <div class="stat-card success">
+        <div class="stat-number" id="stat-approved">0</div>
+        <div class="stat-label">Approved</div>
+      </div>
+      <div class="stat-card danger">
+        <div class="stat-number" id="stat-rejected">0</div>
+        <div class="stat-label">Rejected</div>
+      </div>
+    </div>
+
+    <!-- Recent applications -->
+    <div class="card">
+      <div class="section-header">
+        <h3 class="section-title">Recent Applications</h3>
+        <button class="btn btn-primary btn-sm" onclick="showPage('catalog');loadServiceCatalog()">+ Apply for Service</button>
+      </div>
+      <div id="recent-apps">
+        <div class="empty-state">
+          <div class="empty-icon">📂</div>
+          <p>No applications yet. Browse the service catalog to get started.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     PAGE: Service Catalog
+════════════════════════════════════════════════════════ -->
+<div class="page" id="page-catalog">
+  <div class="main-content">
+    <div class="section-header">
+      <div>
+        <h2>Service Catalog</h2>
+        <p style="color:var(--text-secondary);margin-top:4px;">Browse and apply for government services.</p>
+      </div>
+    </div>
+    <div class="grid-3" id="service-grid">
+      <div class="flex-center" style="padding:60px;"><div class="spinner"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     PAGE: My Applications
+════════════════════════════════════════════════════════ -->
+<div class="page" id="page-my-applications">
+  <div class="main-content">
+    <div class="section-header">
+      <div>
+        <h2>My Applications</h2>
+        <p style="color:var(--text-secondary);margin-top:4px;">Track the status of all your submitted applications.</p>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="loadApplications()">🔄 Refresh</button>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Application No.</th>
+            <th>Service</th>
+            <th>Status</th>
+            <th>Submitted</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="apps-tbody">
+          <tr><td colspan="5" style="text-align:center;padding:30px;">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     PAGE: Consent Management
+════════════════════════════════════════════════════════ -->
+<div class="page" id="page-consents">
+  <div class="main-content">
+    <div class="section-header">
+      <div>
+        <h2>Consent Management</h2>
+        <p style="color:var(--text-secondary);margin-top:4px;">Control which departments can access your personal data.</p>
+      </div>
+    </div>
+
+    <!-- Grant new consent -->
+    <div class="card mb-24">
+      <h3 style="margin-bottom:16px;">Grant New Consent</h3>
+      <div class="consent-form">
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Data Scope</label>
+          <select class="form-control" id="consent-scope">
+            <option value="EDUCATION">Education Records</option>
+            <option value="EMPLOYMENT">Employment History</option>
+            <option value="INCOME">Income Details</option>
+            <option value="HEALTH">Health Records</option>
+            <option value="IDENTITY">Identity Documents</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Purpose</label>
+          <input class="form-control" id="consent-purpose" placeholder="e.g. Scholarship verification"/>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Department ID</label>
+          <input class="form-control" id="consent-dept" placeholder="e.g. DEPT-EDU"/>
+        </div>
+        <button class="btn btn-primary" id="consent-grant-btn" onclick="grantConsentSubmit()">Grant</button>
+      </div>
+    </div>
+
+    <!-- Existing consents -->
+    <div class="section-header">
+      <h3 class="section-title">Active Consents</h3>
+      <button class="btn btn-secondary btn-sm" onclick="loadConsents()">🔄 Refresh</button>
+    </div>
+    <div id="consent-list">
+      <div class="flex-center" style="padding:40px;"><div class="spinner"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     MODAL: Apply for Service
+════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="apply-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Apply for Service</h3>
+      <button class="modal-close" onclick="closeApplyModal()">✕</button>
+    </div>
+    <p style="color:var(--text-secondary);margin-bottom:20px;font-size:0.88rem;">
+      Service: <strong id="apply-service-name"></strong>
+    </p>
+    <div class="form-group">
+      <label class="form-label">Citizen ID</label>
+      <input class="form-control" id="apply-citizen-id" placeholder="Your Citizen ID"/>
+    </div>
+    <input type="hidden" id="apply-service-code"/>
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="closeApplyModal()">Cancel</button>
+      <button class="btn btn-primary" style="flex:2;" id="apply-submit-btn" onclick="submitApplication()">Submit Application</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     MODAL: Application Timeline
+════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="timeline-modal">
+  <div class="modal" style="max-width:540px;">
+    <div class="modal-header">
+      <div>
+        <h3>Application Timeline</h3>
+        <div style="font-size:0.8rem;color:var(--text-muted);" id="timeline-app-num"></div>
+      </div>
+      <button class="modal-close" onclick="closeTimeline()">✕</button>
+    </div>
+    <div id="timeline-content">
+      <div class="flex-center" style="padding:30px;"><div class="spinner"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="../js/auth.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/citizen.js"></script>
+<script>
+  // Override doLogin to use form inputs
+  const _doLogin = doLogin;
+  doLogin = async function() {
+    const nameInput     = document.getElementById('login-name');
+    const citizenIdInput= document.getElementById('login-citizen-id');
+    if (nameInput)     Auth.DEMO_USERS.citizen.name       = nameInput.value || 'Ramesh Patil';
+    if (citizenIdInput) Auth.DEMO_USERS.citizen.citizenId = citizenIdInput.value || 'MH-CIT-2026-001';
+
+    const session = Auth.loginAs('citizen');
+    currentUser = session.user;
+    document.getElementById('dash-username').textContent = currentUser.name;
+    updateNavUser();
+    document.getElementById('main-nav').style.display = 'flex';
+    toast(`Welcome, ${currentUser.name}!`, 'success');
+    showPage('dashboard');
+    await loadDashboard();
+  };
+</script>
+</body>
+</html>

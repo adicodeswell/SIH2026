@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/v1/applications")
@@ -23,6 +24,7 @@ public class ApplicationController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('CITIZEN')")
     public ApplicationResponse createApplication(@Valid @RequestBody CreateApplicationRequest request) {
         return applicationService.createApplication(request);
     }
@@ -44,6 +46,7 @@ public class ApplicationController {
     }
 
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('OFFICER', 'ADMIN')")
     public ApplicationResponse updateApplicationStatus(@PathVariable("id") String id, @Valid @RequestBody UpdateApplicationStatusRequest request) {
         return applicationService.updateApplicationStatus(id, request);
     }

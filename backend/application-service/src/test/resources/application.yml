@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: application-service-test
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+    username: sa
+    password: sa
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/mahasetu
+      client:
+        registration:
+          application-service:
+            provider: keycloak
+            authorization-grant-type: client_credentials
+            client-id: application-service
+            client-secret: secret
+        provider:
+          keycloak:
+            token-uri: http://localhost:8080/realms/mahasetu/protocol/openid-connect/token
+
+integration:
+  workflow-service:
+    url: http://localhost:8083
+    registration-id: application-service

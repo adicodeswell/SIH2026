@@ -3,3 +3,70 @@ server:
 spring:
   application:
     name: security-workflow-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:mahasetu}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/mahasetu}
+      client:
+        registration:
+          security-workflow-service:
+            provider: keycloak
+            authorization-grant-type: client_credentials
+            client-id: ${SECURITY_WORKFLOW_CLIENT_ID:security-workflow-service}
+            client-secret: ${SECURITY_WORKFLOW_CLIENT_SECRET:}
+        provider:
+          keycloak:
+            token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8080/realms/mahasetu/protocol/openid-connect/token}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+camunda:
+  bpm:
+    auto-deployment-enabled: true
+    database:
+      schema-update: true
+    job-execution:
+      enabled: false
+    history-level: full
+
+mahasetu:
+  application-service:
+    url: ${APPLICATION_SERVICE_URL:http://localhost:8081}
+  interoperability-service:
+    url: ${INTEROPERABILITY_SERVICE_URL:http://localhost:8082}
+    token: ${INTEROPERABILITY_SERVICE_TOKEN:MAHASETU_SUPER_SECRET_TOKEN_2026}
+  consent-policy:
+    policies:
+      SKILL_BENEFIT:
+        dataScope: "education,employment,skills"
+        purpose: "verification"
+      SCHOLARSHIP:
+        dataScope: "education"
+        purpose: "scholarship_verification"
+      SRV-EDU:
+        dataScope: "education"
+        purpose: "verification"
+
+logging:
+  level:
+    com.mahasetu.securityworkflow: INFO

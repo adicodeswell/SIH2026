@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" 
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" 
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" 
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI" 
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn" 
+                  id="Definitions_1" 
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="common-review" name="Common Review Workflow" isExecutable="true" camunda:historyTimeToLive="P30D">
+    
+    <bpmn:startEvent id="StartEvent_1" name="Start Workflow">
+      <bpmn:outgoing>SequenceFlow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    
+    <bpmn:sequenceFlow id="SequenceFlow_1" sourceRef="StartEvent_1" targetRef="Task_Initialize" />
+    
+    <bpmn:scriptTask id="Task_Initialize" name="Initialize Application" scriptFormat="javascript">
+      <bpmn:incoming>SequenceFlow_1</bpmn:incoming>
+      <bpmn:outgoing>SequenceFlow_2</bpmn:outgoing>
+      <bpmn:script>
+        var app = execution.getVariable("applicationId");
+        java.lang.System.out.println("Starting workflow for application: " + app);
+      </bpmn:script>
+    </bpmn:scriptTask>
+    
+    <bpmn:sequenceFlow id="SequenceFlow_2" sourceRef="Task_Initialize" targetRef="EndEvent_1" />
+    
+    <bpmn:endEvent id="EndEvent_1" name="End Workflow">
+      <bpmn:incoming>SequenceFlow_2</bpmn:incoming>
+    </bpmn:endEvent>
+    
+  </bpmn:process>
+</bpmn:definitions>
