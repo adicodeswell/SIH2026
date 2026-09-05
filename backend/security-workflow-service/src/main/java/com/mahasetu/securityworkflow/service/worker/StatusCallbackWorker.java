@@ -32,7 +32,7 @@ public class StatusCallbackWorker implements JavaDelegate {
         String officerId = (String) execution.getVariable("officerId");
         String processInstanceId = execution.getProcessInstanceId();
 
-        log.info("StatusCallbackWorker executing: applicationId={}, processInstanceId={}, workflowStatus={}, officerId={}",
+        log.info("[WORKFLOW_EVENT] StatusCallbackWorker executing: applicationId={}, processInstanceId={}, workflowStatus={}, officerId={}",
                 applicationId, processInstanceId, workflowStatus, officerId);
 
         WorkflowStatusCallback callback = new WorkflowStatusCallback(

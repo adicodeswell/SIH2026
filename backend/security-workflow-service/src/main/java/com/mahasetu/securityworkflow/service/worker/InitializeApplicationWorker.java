@@ -24,7 +24,7 @@ public class InitializeApplicationWorker implements JavaDelegate {
     public void execute(DelegateExecution execution) throws Exception {
         String applicationId = (String) execution.getVariable("applicationId");
 
-        log.info("InitializeApplicationWorker: starting for applicationId={}", applicationId);
+        log.info("[WORKFLOW_EVENT] InitializeApplicationWorker: starting for applicationId={}", applicationId);
 
         if (applicationId == null || applicationId.trim().isEmpty()) {
             execution.setVariable("failureReason", "applicationId is missing");
@@ -42,12 +42,12 @@ public class InitializeApplicationWorker implements JavaDelegate {
             execution.setVariable("citizenId", response.getCitizenId());
             execution.setVariable("serviceCode", response.getServiceCode());
 
-            log.info("InitializeApplicationWorker: completed for applicationId={}, citizenId={}, serviceCode={}",
+            log.info("[WORKFLOW_EVENT] InitializeApplicationWorker: completed for applicationId={}, citizenId={}, serviceCode={}",
                     applicationId, response.getCitizenId(), response.getServiceCode());
         } catch (BpmnError e) {
             throw e; // Re-throw BpmnErrors — they are handled by BPMN boundary events
         } catch (Exception e) {
-            log.error("InitializeApplicationWorker: failed to fetch application applicationId={}, error={}",
+            log.error("[WORKFLOW_EVENT] InitializeApplicationWorker: failed to fetch application applicationId={}, error={}",
                     applicationId, e.getMessage());
             execution.setVariable("failureReason", "Failed to fetch application from Application Service");
             throw new BpmnError("APPLICATION_FETCH_FAILED", "Error fetching application: " + e.getMessage());

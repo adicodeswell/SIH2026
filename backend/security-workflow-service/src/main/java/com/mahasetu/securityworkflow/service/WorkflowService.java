@@ -16,14 +16,16 @@ public class WorkflowService {
 
     private final RuntimeService runtimeService;
     private final RepositoryService repositoryService;
+    private final AuditService auditService;
 
-    public WorkflowService(RuntimeService runtimeService, RepositoryService repositoryService) {
+    public WorkflowService(RuntimeService runtimeService, RepositoryService repositoryService, AuditService auditService) {
         this.runtimeService = runtimeService;
         this.repositoryService = repositoryService;
+        this.auditService = auditService;
     }
 
     public String startWorkflow(String applicationId, String workflowKey) {
-        log.info("Starting workflow: applicationId={}, workflowKey={}", applicationId, workflowKey);
+        log.info("[WORKFLOW_EVENT] Starting workflow: applicationId={}, workflowKey={}", applicationId, workflowKey);
 
         // Validate that the workflowKey exists as a deployed process definition
         long count = repositoryService.createProcessDefinitionQuery()
@@ -32,8 +34,21 @@ public class WorkflowService {
                 .count();
         
         if (count == 0) {
-            log.warn("Workflow start failed: unknown workflowKey={} for applicationId={}", workflowKey, applicationId);
+            log.warn("[WORKFLOW_EVENT] Workflow start failed: unknown workflowKey={} for applicationId={}", workflowKey, applicationId);
             throw new IllegalArgumentException("Unknown or undeployed workflowKey: " + workflowKey);
+        }
+
+        // Idempotency: Check if an active process instance already exists for this applicationId and workflowKey
+        ProcessInstance existing = runtimeService.createProcessInstanceQuery()
+                .processDefinitionKey(workflowKey)
+                .processInstanceBusinessKey(applicationId)
+                .active()
+                .singleResult();
+
+        if (existing != null) {
+            log.info("[WORKFLOW_EVENT] Workflow already active for applicationId={}, returning existing processInstanceId={}",
+                    applicationId, existing.getId());
+            return existing.getId();
         }
 
         // Start process instance and pass applicationId as a variable
@@ -43,8 +58,10 @@ public class WorkflowService {
                 Map.of("applicationId", applicationId)
         );
 
-        log.info("Workflow started successfully: applicationId={}, workflowKey={}, processInstanceId={}",
+        log.info("[WORKFLOW_EVENT] Workflow started successfully: applicationId={}, workflowKey={}, processInstanceId={}",
                 applicationId, workflowKey, processInstance.getId());
+
+        auditService.recordWorkflowStarted(applicationId, processInstance.getId(), workflowKey, "application-service");
 
         return processInstance.getId();
     }

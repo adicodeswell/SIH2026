@@ -6,6 +6,8 @@ import com.mahasetu.application.exception.ResourceNotFoundException;
 import com.mahasetu.application.exception.ValidationException;
 import com.mahasetu.application.integration.WorkflowClient;
 import com.mahasetu.application.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +19,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class ApplicationService {
+
+    private static final Logger log = LoggerFactory.getLogger(ApplicationService.class);
 
     private final ApplicationRepository applicationRepository;
     private final CitizenRepository citizenRepository;
@@ -129,6 +133,39 @@ public class ApplicationService {
         return mapToResponse(updatedApplication);
     }
 
+    @Transactional
+    public ApplicationResponse retryWorkflow(String applicationNumber) {
+        log.info("[RECOVERY_EVENT] Initiating workflow retry for applicationNumber={}", applicationNumber);
+        Application application = applicationRepository.findByApplicationNumber(applicationNumber)
+                .orElseThrow(() -> new ResourceNotFoundException("Application not found: " + applicationNumber));
+
+        if (application.getStatus() != ApplicationStatus.FAILED && application.getStatus() != ApplicationStatus.SUBMITTED) {
+            log.warn("[RECOVERY_EVENT] Workflow retry rejected: applicationNumber={} is in status {}", applicationNumber, application.getStatus());
+            throw new ValidationException("Cannot retry workflow for application in status: " + application.getStatus());
+        }
+
+        com.mahasetu.application.entity.Service service = application.getService();
+        String workflowKey = service.getWorkflowKey() != null && !service.getWorkflowKey().isBlank()
+                ? service.getWorkflowKey()
+                : "application-orchestration";
+
+        try {
+            workflowClient.startWorkflow(application.getApplicationNumber(), workflowKey);
+            ApplicationStatus oldStatus = application.getStatus();
+            application.setStatus(ApplicationStatus.SUBMITTED);
+            Application updated = applicationRepository.save(application);
+            recordEvent(updated, "WORKFLOW_RETRY_SUCCEEDED", oldStatus, ApplicationStatus.SUBMITTED,
+                    "Workflow start retry succeeded: " + workflowKey, "application-service");
+            log.info("[RECOVERY_EVENT] Workflow retry succeeded for applicationNumber={}", applicationNumber);
+            return mapToResponse(updated);
+        } catch (Exception e) {
+            log.error("[RECOVERY_EVENT] Workflow retry failed for applicationNumber={}: error={}", applicationNumber, e.getMessage());
+            recordEvent(application, "WORKFLOW_RETRY_FAILED", application.getStatus(), ApplicationStatus.FAILED,
+                    "Workflow start retry failed: " + e.getMessage(), "application-service");
+            throw new RuntimeException("Workflow retry failed: " + e.getMessage(), e);
+        }
+    }
+
     @Transactional(readOnly = true)
     public List<TimelineEventResponse> getApplicationTimeline(String applicationNumber) {
         // Validate existence
@@ -181,6 +218,15 @@ public class ApplicationService {
         if (!isValid) {
             throw new ValidationException("Invalid status transition from " + oldStatus + " to " + newStatus);
         }
+    }
+
+    private boolean isTerminalState(ApplicationStatus status) {
+        return status == ApplicationStatus.APPROVED ||
+               status == ApplicationStatus.REJECTED ||
+               status == ApplicationStatus.CONSENT_DENIED ||
+               status == ApplicationStatus.FAILED ||
+               status == ApplicationStatus.CANCELLED ||
+               status == ApplicationStatus.COMPLETED;
     }
 
     private ApplicationStatus mapWorkflowStatus(String workflowStatus) {

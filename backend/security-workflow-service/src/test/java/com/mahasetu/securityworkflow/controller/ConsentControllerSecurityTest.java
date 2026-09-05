@@ -26,7 +26,11 @@ import com.mahasetu.securityworkflow.config.SecurityConfig;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 
+import org.springframework.test.context.ContextConfiguration;
+import com.mahasetu.securityworkflow.SecurityWorkflowApplication;
+
 @WebMvcTest(ConsentController.class)
+@ContextConfiguration(classes = SecurityWorkflowApplication.class)
 @Import(SecurityConfig.class)
 class ConsentControllerSecurityTest {
 

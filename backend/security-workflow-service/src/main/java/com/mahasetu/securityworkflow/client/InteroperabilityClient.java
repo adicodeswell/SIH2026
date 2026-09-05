@@ -28,6 +28,8 @@ public class InteroperabilityClient {
         this.token = token;
     }
 
+    private static final int MAX_ATTEMPTS = 3;
+
     public List<CanonicalCitizenData> fetchAllData(String citizenId) {
         String url = interoperabilityServiceUrl + "/api/v1/interop/fetch/all/" + citizenId;
         
@@ -35,14 +37,27 @@ public class InteroperabilityClient {
         headers.set("Authorization", "Bearer " + token);
         
         HttpEntity<String> entity = new HttpEntity<>(headers);
-        
-        ResponseEntity<List<CanonicalCitizenData>> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                entity,
-                new ParameterizedTypeReference<List<CanonicalCitizenData>>() {}
-        );
-        
-        return response.getBody();
+
+        int attempts = 0;
+        while (attempts < MAX_ATTEMPTS) {
+            attempts++;
+            try {
+                ResponseEntity<List<CanonicalCitizenData>> response = restTemplate.exchange(
+                        url,
+                        HttpMethod.GET,
+                        entity,
+                        new ParameterizedTypeReference<List<CanonicalCitizenData>>() {}
+                );
+                return response.getBody();
+            } catch (org.springframework.web.client.HttpClientErrorException e) {
+                // Permanent 4xx client error (e.g. 404, 401): do not retry
+                throw e;
+            } catch (org.springframework.web.client.HttpServerErrorException | org.springframework.web.client.ResourceAccessException e) {
+                if (attempts >= MAX_ATTEMPTS) {
+                    throw e;
+                }
+            }
+        }
+        return null;
     }
 }

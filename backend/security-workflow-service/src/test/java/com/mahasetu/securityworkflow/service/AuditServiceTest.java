@@ -69,13 +69,73 @@ class AuditServiceTest {
     }
 
     @Test
-    void testGetAuditLogsForApplication_ReturnsRepositoryList() {
-        AuditLog entry = new AuditLog("APP-1111", "officer_1", "OFFICER_REVIEW", "APPLICATION", "APP-1111", "APPROVE", "{}");
-        when(auditLogRepository.findByApplicationId("APP-1111")).thenReturn(List.of(entry));
+    void testRecordConsentGranted_PersistsCorrectFields() {
+        when(auditLogRepository.save(any(AuditLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        List<AuditLog> logs = auditService.getAuditLogsForApplication("APP-1111");
-        assertEquals(1, logs.size());
-        assertEquals("APP-1111", logs.get(0).getApplicationId());
-        verify(auditLogRepository).findByApplicationId("APP-1111");
+        UUID consentId = UUID.randomUUID();
+        AuditLog result = auditService.recordConsentGranted("CIT-123", consentId, "DEPT-1", "education", "verification");
+
+        assertNotNull(result);
+        assertEquals("CIT-123", result.getActorId());
+        assertEquals("CONSENT_GRANTED", result.getAction());
+        assertEquals("CONSENT", result.getResourceType());
+        assertEquals(consentId.toString(), result.getResourceId());
+        assertEquals("verification", result.getPurpose());
+        assertTrue(result.getMetadata().contains("education"));
+        assertTrue(result.getMetadata().contains("DEPT-1"));
+    }
+
+    @Test
+    void testRecordConsentRevoked_PersistsCorrectFields() {
+        when(auditLogRepository.save(any(AuditLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UUID consentId = UUID.randomUUID();
+        AuditLog result = auditService.recordConsentRevoked("CIT-123", consentId);
+
+        assertNotNull(result);
+        assertEquals("CIT-123", result.getActorId());
+        assertEquals("CONSENT_REVOKED", result.getAction());
+        assertEquals("CONSENT", result.getResourceType());
+        assertEquals(consentId.toString(), result.getResourceId());
+    }
+
+    @Test
+    void testRecordWorkflowStarted_PersistsCorrectFields() {
+        when(auditLogRepository.save(any(AuditLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AuditLog result = auditService.recordWorkflowStarted("APP-100", "proc-100", "application-orchestration", "application-service");
+
+        assertNotNull(result);
+        assertEquals("APP-100", result.getApplicationId());
+        assertEquals("application-service", result.getActorId());
+        assertEquals("WORKFLOW_STARTED", result.getAction());
+        assertEquals("WORKFLOW", result.getResourceType());
+        assertEquals("proc-100", result.getResourceId());
+        assertTrue(result.getMetadata().contains("application-orchestration"));
+    }
+
+    @Test
+    void testRecordWorkflowFailed_PersistsCorrectFields() {
+        when(auditLogRepository.save(any(AuditLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AuditLog result = auditService.recordWorkflowFailed("APP-100", "proc-100", "Downstream timeout", "security-workflow-service");
+
+        assertNotNull(result);
+        assertEquals("APP-100", result.getApplicationId());
+        assertEquals("WORKFLOW_FAILED", result.getAction());
+        assertTrue(result.getMetadata().contains("Downstream timeout"));
+    }
+
+    @Test
+    void testRecordOfficerClaimAndUnclaim_PersistsCorrectFields() {
+        when(auditLogRepository.save(any(AuditLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AuditLog claim = auditService.recordOfficerClaim("APP-100", "task-1", "officer_1");
+        assertEquals("OFFICER_CLAIM", claim.getAction());
+        assertEquals("officer_1", claim.getActorId());
+
+        AuditLog unclaim = auditService.recordOfficerUnclaim("APP-100", "task-1", "officer_1");
+        assertEquals("OFFICER_UNCLAIM", unclaim.getAction());
+        assertEquals("officer_1", unclaim.getActorId());
     }
 }

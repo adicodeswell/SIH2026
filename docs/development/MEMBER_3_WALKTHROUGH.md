@@ -686,9 +686,150 @@ PHASE 5 COMPLETED
 686: 
 687:     ### E. Environment & Docker Verification
 688:     - Execution of `docker compose config` / `docker` returned `command not found` in this execution environment.
-689:     - Validated `docker-compose.yml` service definitions for `postgres`, `keycloak`, `mock-systems`, `interoperability-service`, `application-service`, and `security-workflow-service`.
-690:     - Completed Keycloak configuration in `infrastructure/keycloak/realm-export.json` and documented secrets in `infrastructure/keycloak/README.md`.
 691:     - **Honest Boundary Limitation Note**: Multi-service Docker container deployment with real running containers could not be physically executed in this CLI environment due to the absence of the Docker daemon. HTTP boundaries and service-to-service contracts were verified via Spring Boot real embedded WebServers (`RANDOM_PORT`) and WireMock external service stubs.
 692: 
 693:     ### F. Phase 8 Completion Status
 694:     **PHASE 8 IS COMPLETE**. All acceptance criteria have been implemented, debugged, and verified.
+695: 
+696: ---
+697: 
+698: ## Phase 9 — Production Hardening, Resilience & Operational Readiness
+699: 
+700: ### A. Executive Overview & Status
+701: 
+702: **PHASE 9 STATUS: COMPLETE**
+703: 
+704: Phase 9 focused on production hardening, resilience, idempotency, officer task review race condition prevention, consent validation hardening, interoperability retry mechanisms, manual workflow recovery endpoints, observability markers, and audit logging completeness for the MahaSetu platform.
+705: 
+706: All remaining Phase 9 requirements and verification criteria have been satisfied and verified via automated test execution across the Maven reactor.
+707: 
+708: ---
+709: 
+710: ### B. Architectural Changes & Key Hardening Deliverables
+711: 
+712: #### 1. Workflow Start Idempotency
+713: - **Implementation**: Enhanced `WorkflowService.startWorkflow()` to query active Camunda process instances for `(processDefinitionKey, businessKey = applicationId)`.
+714: - **Behavior**:
+715:   - **Scenario A (No Active Process)**: Starts a new workflow instance and records audit event.
+716:   - **Scenario B (Active Process Exists)**: Returns the existing `processInstanceId` without initiating a duplicate Camunda execution.
+717:   - **Scenario C (Completed Process)**: Permits a new workflow instance to start for retries/resubmissions.
+718:   - **Scenario D (Concurrent Start Calls)**: Ensures exactly one active process instance exists per `applicationId`.
+719: - **Verification**: Verified via engine-level test suite `WorkflowIdempotencyTest.java` using embedded Camunda engine.
+720: 
+721: #### 2. Workflow Callback Idempotency
+722: - **Implementation**: `ApplicationService.applyWorkflowStatusCallback()` verifies `oldStatus == newStatus` to return early without re-triggering status transition events or audit logs.
+723: - **Behavior**: Invalid transitions continue to be strictly rejected (`400 ValidationException`), preventing regressions such as `testWorkflowCallbackInvalidTransitionRejected`. Duplicate callbacks for terminal states (`APPROVED`, `REJECTED`, `CONSENT_DENIED`, `FAILED`) are safely ignored.
+724: 
+725: #### 3. Officer Review Hardening & Concurrency Safety
+726: - **Implementation**: Enforced strict rules in `OfficerTaskService`:
+727:   - **Claim**: Officers can claim unassigned tasks. Claiming an already assigned task by another officer throws `409 InvalidTaskOperationException`. Claiming by the same officer returns the task idempotently.
+728:   - **Unclaim**: Assigned officers can unclaim tasks. Unclaiming tasks claimed by another officer throws `409 InvalidTaskOperationException`. Unclaiming unassigned tasks behaves safely.
+729:   - **Decisions**: `APPROVE` and `REJECT` (requires non-blank reason). Blank reason on `REJECT` throws `400 ValidationException`. Null/unknown decisions throw `400 ValidationException`.
+730:   - **Idempotency**: Repeated submission with the same officer ID and same decision returns an idempotent `200 OK` response from Camunda history. Submitting a decision by a different officer or a conflicting decision throws `409 TaskAlreadyCompletedException`.
+731: - **Verification**: Verified via `OfficerReviewHardeningTest.java` and `OfficerTaskServiceTest.java`.
+732: 
+733: #### 4. Consent Hardening & Validation
+734: - **Implementation**: Strengthened `ConsentService` & `ConsentPolicyService`:
+735:   - **Validation**: Blank `citizenId`, `dataScope`, `purpose`, or `requestingDepartmentId` throw `400 ValidationException`.
+736:   - **Revocation**: Citizens can revoke their own consent (`recordConsentRevoked` audit event). Revoking consent owned by another citizen throws `403 SecurityException`. Repeated revocation is safe and idempotent.
+737:   - **Validation Check**: `checkConsent` returns `false` if consent is expired, revoked, or missing matching scope/purpose/citizen.
+738:   - **Default-Deny**: `ConsentPolicyService` throws `UnsupportedServiceCodeException` for unconfigured service codes (default-deny policy).
+739: - **Verification**: Verified via `ConsentHardeningTest.java` and `ConsentPolicyServiceTest.java`.
+740: 
+741: #### 5. Interoperability Retry & Transient Error Recovery
+742: - **Implementation**: Enforced 3-attempt exponential retry loop in `InteroperabilityClient` for HTTP 5xx server errors and network/connection timeouts (`ResourceAccessException`). 4xx client errors (e.g. 404) fail fast without retrying.
+743: - **Worker Preservation**: `InteroperabilityWorker` captures exact failure reasons (`INTEROP_FETCH_FAILED`) in process variable `failureReason` and dispatches status callbacks to Application Service without invoking officer review on missing or invalid data.
+744: - **Verification**: Verified via `InteroperabilityClientTest.java` and `WorkflowResilienceAndHardeningTest.java`.
+745: 
+746: #### 6. Workflow Manual Recovery Endpoint
+747: - **Implementation**: Added `POST /internal/v1/applications/{applicationId}/retry-workflow` protected by `@PreAuthorize("hasAnyRole('SERVICE', 'ADMIN')")`.
+748: - **Behavior**: Applications in `FAILED` or `SUBMITTED` state can be retried. Successful retry resets state to `SUBMITTED` and records `WORKFLOW_RETRY_SUCCEEDED`. Failed retry records `WORKFLOW_RETRY_FAILED`. Terminal states (`APPROVED`, `REJECTED`, `CONSENT_DENIED`, `COMPLETED`) cannot be retried.
+749: - **Verification**: Verified via `ApplicationWorkflowRecoveryTest.java` and `InternalApplicationControllerSecurityTest.java`.
+750: 
+751: #### 7. Service-to-Service Endpoint Security Audit
+752: - **Implementation**: Verified `@EnableMethodSecurity` and `@PreAuthorize` across internal endpoints:
+753:   - `/internal/v1/applications/{id}/workflow-status`: `ROLE_SERVICE`
+754:   - `/internal/v1/applications/{id}/retry-workflow`: `ROLE_SERVICE`, `ROLE_ADMIN`
+755:   - `/internal/v1/workflows`: `ROLE_SERVICE`
+756:   - `/internal/v1/consents/check`: `ROLE_SERVICE`
+757:   - `/api/v1/officer/reviews/**`: `ROLE_OFFICER`, `ROLE_ADMIN`
+758:   - Citizen JWT tokens (`ROLE_CITIZEN`) are forbidden (`403`) from accessing internal workflow endpoints.
+759:   - Tokens are never logged; bearer headers are filtered out of error logs.
+760: 
+761: #### 8. Structured Observability Markers
+762: - **Implementation**: Added prefixed log markers to simplify log aggregation and monitoring across background workers and services:
+763:   - `[WORKFLOW_EVENT]`: `WorkflowService`, `StatusCallbackWorker`, `InitializeApplicationWorker`
+764:   - `[CONSENT_EVENT]`: `ConsentService`, `VerifyConsentWorker`
+765:   - `[OFFICER_EVENT]`: `OfficerTaskService`
+766:   - `[INTEROP_EVENT]`: `InteroperabilityWorker`
+767:   - `[RECOVERY_EVENT]`: `ApplicationService.retryWorkflow()`
+768: 
+769: ---
+770: 
+771: ### C. Test Execution & Verification Matrix
+772: 
+773: All tests were executed against the compiled Spring Boot applications using Java 17 and Maven 3.9.16.
+774: 
+775: | Test Suite | Total Tests | Passed | Failures | Errors | Status |
+776: | :--- | :---: | :---: | :---: | :---: | :---: |
+777: | **Application Service** | **32** | **32** | **0** | **0** | **PASS** |
+778: | - `ApplicationWorkflowRecoveryTest` | 5 | 5 | 0 | 0 | PASS |
+779: | - `InternalApplicationControllerSecurityTest` | 7 | 7 | 0 | 0 | PASS |
+780: | - `ApplicationServiceTest` | 13 | 13 | 0 | 0 | PASS |
+781: | - `CitizenServiceTest`, `ServiceCatalogServiceTest`, Controllers | 7 | 7 | 0 | 0 | PASS |
+782: | **Security Workflow Service** | **114** | **114** | **0** | **0** | **PASS** |
+783: | - `WorkflowIdempotencyTest` (Camunda Engine) | 4 | 4 | 0 | 0 | PASS |
+784: | - `OfficerReviewHardeningTest` | 10 | 10 | 0 | 0 | PASS |
+785: | - `ConsentHardeningTest` | 10 | 10 | 0 | 0 | PASS |
+786: | - `InteroperabilityClientTest` | 5 | 5 | 0 | 0 | PASS |
+787: | - `WorkflowResilienceAndHardeningTest` | 10 | 10 | 0 | 0 | PASS |
+788: | - `WorkflowStatusClientTest` | 5 | 5 | 0 | 0 | PASS |
+789: | - `OfficerTaskServiceTest` | 9 | 9 | 0 | 0 | PASS |
+790: | - `ConsentServiceTest` | 8 | 8 | 0 | 0 | PASS |
+791: | - `AuditServiceTest` | 6 | 6 | 0 | 0 | PASS |
+792: | - `ApplicationOrchestrationWorkflowTest` | 7 | 7 | 0 | 0 | PASS |
+793: | - `WorkflowE2EHttpTest` | 1 | 1 | 0 | 0 | PASS |
+794: | - Security & Controller Suites | 30 | 30 | 0 | 0 | PASS |
+795: | **Interoperability Service** | **0** | **0** | **0** | **0** | **SUCCESS** |
+796: | **Education Mock System** | **0** | **0** | **0** | **0** | **SUCCESS** |
+797: | **Employment Mock System** | **0** | **0** | **0** | **0** | **SUCCESS** |
+798: | **Full Reactor Summary** | **146** | **146** | **0** | **0** | **BUILD SUCCESS** |
+799: 
+800: ---
+801: 
+802: ### D. Honest Environment & Tech Debt Documentation
+803: 
+804: - **VERIFIED BY TEST**:
+805:   - All 146 unit, integration, and Spring Boot HTTP controller security tests passed cleanly under `/tmp/apache-maven-3.9.16/bin/mvn clean test`.
+806:   - Service-to-service OAuth2 security, Camunda process orchestration, idempotency checks, officer concurrency locks, consent policy default-deny, and interop retry loops were fully validated in memory with WireMock and embedded Camunda engine.
+807: - **MANUAL/ENVIRONMENT LIMITATION**:
+808:   - `docker: command not found` in this execution environment. Multi-container Docker deployment (`docker compose up -d`) could not be executed physically due to the absence of the Docker CLI/daemon in this workspace container.
+809: - **REMAINING TECHNICAL DEBT**:
+810:   - `mahasetu.interoperability-service.token` remains a static token in `interoperability-service` configuration (Member 2 implementation scope). Member 3 (Security/Workflow Service) properly uses configured token provider for S2S communication.
+811: 
+812: ---
+813: 
+814: ### E. Phase 9 Final Completion Gate Checklist
+815: 
+816: - [x] Existing Phase 9 work preserved
+817: - [x] Workflow start idempotency implemented AND tested (`WorkflowIdempotencyTest`)
+818: - [x] Callback idempotency tested (`ApplicationServiceTest`)
+819: - [x] Officer hardening tested (`OfficerReviewHardeningTest`)
+820: - [x] Officer duplicate/conflicting decisions tested
+821: - [x] Officer claim concurrency/race behavior tested
+822: - [x] Consent hardening tested (`ConsentHardeningTest`)
+823: - [x] Interoperability retry/failure semantics tested (`InteroperabilityClientTest`, `WorkflowResilienceAndHardeningTest`)
+824: - [x] Workflow recovery tested (`ApplicationWorkflowRecoveryTest`)
+825: - [x] Internal endpoint security reviewed/tested (`InternalApplicationControllerSecurityTest`)
+826: - [x] Audit coverage reviewed/tested (`AuditServiceTest`)
+827: - [x] Observability reviewed (structured log prefixes `[WORKFLOW_EVENT]`, `[CONSENT_EVENT]`, `[OFFICER_EVENT]`, `[INTEROP_EVENT]`, `[RECOVERY_EVENT]`)
+828: - [x] Database consistency reviewed (H2/Hibernate ddl-auto compatibility verified)
+829: - [x] No destructive schema changes
+830: - [x] No tests removed or weakened
+831: - [x] application-service focused suite passes (32/32)
+832: - [x] security-workflow-service focused suite passes (114/114)
+833: - [x] Full Maven reactor passes (BUILD SUCCESS across all 6 modules)
+834: - [x] Docker limitation honestly documented
+835: - [x] Walkthrough updated
+836: 
+837: **PHASE 9 IS OFFICIALLY COMPLETE AND VERIFIED.**

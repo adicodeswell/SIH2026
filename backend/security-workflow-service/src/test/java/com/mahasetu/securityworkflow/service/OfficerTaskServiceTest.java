@@ -166,7 +166,7 @@ class OfficerTaskServiceTest {
     }
 
     @Test
-    void testCompleteOfficerDecision_AlreadyCompleted_ThrowsTaskAlreadyCompletedException() {
+    void testCompleteOfficerDecision_AlreadyCompleted_DifferentDecision_ThrowsTaskAlreadyCompletedException() {
         when(taskService.createTaskQuery()).thenReturn(taskQuery);
         when(taskQuery.taskId("task-done")).thenReturn(taskQuery);
         when(taskQuery.active()).thenReturn(taskQuery);
@@ -174,13 +174,62 @@ class OfficerTaskServiceTest {
 
         HistoricTaskInstance historicTask = mock(HistoricTaskInstance.class);
         when(historicTask.getEndTime()).thenReturn(new Date());
+        when(historicTask.getProcessInstanceId()).thenReturn("proc-done");
 
         when(historyService.createHistoricTaskInstanceQuery()).thenReturn(historicTaskQuery);
         when(historicTaskQuery.taskId("task-done")).thenReturn(historicTaskQuery);
         when(historicTaskQuery.singleResult()).thenReturn(historicTask);
 
+        org.camunda.bpm.engine.history.HistoricVariableInstanceQuery varQuery = mock(org.camunda.bpm.engine.history.HistoricVariableInstanceQuery.class);
+        when(historyService.createHistoricVariableInstanceQuery()).thenReturn(varQuery);
+        when(varQuery.processInstanceId("proc-done")).thenReturn(varQuery);
+        when(varQuery.variableName(anyString())).thenReturn(varQuery);
+        when(varQuery.singleResult()).thenReturn(null);
+
         assertThrows(TaskAlreadyCompletedException.class, () ->
                 officerTaskService.completeOfficerDecision("task-done", "officer_1", "APPROVE", null));
+    }
+
+    @Test
+    void testCompleteOfficerDecision_DuplicateSameDecision_ReturnsIdempotentResponse() {
+        when(taskService.createTaskQuery()).thenReturn(taskQuery);
+        when(taskQuery.taskId("task-dup")).thenReturn(taskQuery);
+        when(taskQuery.active()).thenReturn(taskQuery);
+        when(taskQuery.singleResult()).thenReturn(null);
+
+        HistoricTaskInstance historicTask = mock(HistoricTaskInstance.class);
+        when(historicTask.getEndTime()).thenReturn(new Date());
+        when(historicTask.getProcessInstanceId()).thenReturn("proc-dup");
+
+        when(historyService.createHistoricTaskInstanceQuery()).thenReturn(historicTaskQuery);
+        when(historicTaskQuery.taskId("task-dup")).thenReturn(historicTaskQuery);
+        when(historicTaskQuery.singleResult()).thenReturn(historicTask);
+
+        org.camunda.bpm.engine.history.HistoricVariableInstance varOfficer = mock(org.camunda.bpm.engine.history.HistoricVariableInstance.class);
+        when(varOfficer.getValue()).thenReturn("officer_1");
+
+        org.camunda.bpm.engine.history.HistoricVariableInstance varDecision = mock(org.camunda.bpm.engine.history.HistoricVariableInstance.class);
+        when(varDecision.getValue()).thenReturn("APPROVE");
+
+        org.camunda.bpm.engine.history.HistoricVariableInstance varAppId = mock(org.camunda.bpm.engine.history.HistoricVariableInstance.class);
+        when(varAppId.getValue()).thenReturn("APP-DUP");
+
+        org.camunda.bpm.engine.history.HistoricVariableInstanceQuery varQuery = mock(org.camunda.bpm.engine.history.HistoricVariableInstanceQuery.class);
+        when(historyService.createHistoricVariableInstanceQuery()).thenReturn(varQuery);
+        when(varQuery.processInstanceId("proc-dup")).thenReturn(varQuery);
+        when(varQuery.variableName("officerId")).thenReturn(varQuery);
+        when(varQuery.variableName("officerDecision")).thenReturn(varQuery);
+        when(varQuery.variableName("applicationId")).thenReturn(varQuery);
+        when(varQuery.singleResult()).thenReturn(varOfficer).thenReturn(varDecision).thenReturn(varAppId);
+
+        OfficerDecisionResponse response = officerTaskService.completeOfficerDecision("task-dup", "officer_1", "APPROVE", "Already verified");
+
+        assertNotNull(response);
+        assertEquals("task-dup", response.getTaskId());
+        assertEquals("APP-DUP", response.getApplicationId());
+        assertEquals("APPROVE", response.getDecision());
+        assertEquals("officer_1", response.getOfficerId());
+        assertEquals("COMPLETED", response.getStatus());
     }
 
     @Test
@@ -200,11 +249,13 @@ class OfficerTaskServiceTest {
         OfficerReviewTaskResponse claimed = officerTaskService.claimTask("task-303", "officer_deshmukh");
         assertNotNull(claimed);
         verify(taskService).claim("task-303", "officer_deshmukh");
+        verify(auditService).recordOfficerClaim("APP-303", "task-303", "officer_deshmukh");
 
         // Now test unclaiming
         when(mockTask.getAssignee()).thenReturn("officer_deshmukh");
         officerTaskService.unclaimTask("task-303", "officer_deshmukh");
         verify(taskService).setAssignee("task-303", null);
+        verify(auditService).recordOfficerUnclaim("APP-303", "task-303", "officer_deshmukh");
     }
 
     @Test

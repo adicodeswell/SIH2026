@@ -107,6 +107,19 @@ public class GlobalExceptionHandler {
         throw ex; // Re-throw to allow Spring Security to return 403
     }
 
+    @ExceptionHandler(SecurityException.class)
+    public ResponseEntity<ErrorResponse> handleSecurityException(SecurityException ex, HttpServletRequest request) {
+        log.warn("Security exception: {}", ex.getMessage());
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.FORBIDDEN.value(),
+                "FORBIDDEN",
+                ex.getMessage(),
+                request.getRequestURI(),
+                null
+        );
+        return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGlobalException(Exception ex, HttpServletRequest request) {
         log.error("Unhandled exception processing request: {}", ex.getMessage(), ex);

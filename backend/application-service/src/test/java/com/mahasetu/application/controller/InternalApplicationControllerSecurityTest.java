@@ -69,6 +69,47 @@ class InternalApplicationControllerSecurityTest {
                 .andExpect(jsonPath("$.status").value("PENDING_OFFICER_REVIEW"));
     }
 
+    @Test
+    void retryWorkflowUnauthenticatedReturnsUnauthorized() throws Exception {
+        mockMvc.perform(post("/internal/v1/applications/MH-2026-000001/retry-workflow"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void retryWorkflowCitizenReturnsForbidden() throws Exception {
+        mockMvc.perform(post("/internal/v1/applications/MH-2026-000001/retry-workflow")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CITIZEN"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void retryWorkflowServiceRoleAllowed() throws Exception {
+        ApplicationResponse response = new ApplicationResponse();
+        response.setApplicationNumber("MH-2026-000001");
+        response.setStatus(ApplicationStatus.SUBMITTED);
+
+        when(applicationService.retryWorkflow("MH-2026-000001")).thenReturn(response);
+
+        mockMvc.perform(post("/internal/v1/applications/MH-2026-000001/retry-workflow")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SERVICE"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUBMITTED"));
+    }
+
+    @Test
+    void retryWorkflowAdminRoleAllowed() throws Exception {
+        ApplicationResponse response = new ApplicationResponse();
+        response.setApplicationNumber("MH-2026-000001");
+        response.setStatus(ApplicationStatus.SUBMITTED);
+
+        when(applicationService.retryWorkflow("MH-2026-000001")).thenReturn(response);
+
+        mockMvc.perform(post("/internal/v1/applications/MH-2026-000001/retry-workflow")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUBMITTED"));
+    }
+
     private String callbackJson(String status) throws Exception {
         WorkflowStatusCallbackRequest request = new WorkflowStatusCallbackRequest();
         request.setApplicationId("MH-2026-000001");

@@ -30,7 +30,7 @@ public class VerifyConsentWorker implements JavaDelegate {
         String serviceCode = (String) execution.getVariable("serviceCode");
         String applicationId = (String) execution.getVariable("applicationId");
 
-        log.info("VerifyConsentWorker: checking consent for applicationId={}, citizenId={}, serviceCode={}",
+        log.info("[CONSENT_EVENT] VerifyConsentWorker: checking consent for applicationId={}, citizenId={}, serviceCode={}",
                 applicationId, citizenId, serviceCode);
 
         // Dynamically resolve consent policy from configuration
@@ -38,7 +38,7 @@ public class VerifyConsentWorker implements JavaDelegate {
         try {
             policy = consentPolicyService.getPolicy(serviceCode);
         } catch (UnsupportedServiceCodeException e) {
-            log.error("VerifyConsentWorker: unsupported serviceCode={} for applicationId={}", serviceCode, applicationId);
+            log.error("[CONSENT_EVENT] VerifyConsentWorker: unsupported serviceCode={} for applicationId={}", serviceCode, applicationId);
             execution.setVariable("failureReason", "Unsupported service code: " + serviceCode);
             throw new BpmnError("UNSUPPORTED_SERVICE_CODE", "No consent policy for service code: " + serviceCode);
         }
@@ -46,14 +46,14 @@ public class VerifyConsentWorker implements JavaDelegate {
         String dataScope = policy.getDataScope();
         String purpose = policy.getPurpose();
 
-        log.info("VerifyConsentWorker: resolved policy for serviceCode={}: dataScope={}, purpose={}",
+        log.info("[CONSENT_EVENT] VerifyConsentWorker: resolved policy for serviceCode={}: dataScope={}, purpose={}",
                 serviceCode, dataScope, purpose);
 
         boolean consentValid = consentService.checkConsent(citizenId, dataScope, purpose);
 
         execution.setVariable("consentValid", consentValid);
 
-        log.info("VerifyConsentWorker: consent check result for applicationId={}: consentValid={}",
+        log.info("[CONSENT_EVENT] VerifyConsentWorker: consent check result for applicationId={}: consentValid={}",
                 applicationId, consentValid);
     }
 }

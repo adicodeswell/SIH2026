@@ -21,7 +21,11 @@ import org.springframework.context.annotation.Import;
 import com.mahasetu.securityworkflow.config.SecurityConfig;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
+import org.springframework.test.context.ContextConfiguration;
+import com.mahasetu.securityworkflow.SecurityWorkflowApplication;
+
 @WebMvcTest(WorkflowController.class)
+@ContextConfiguration(classes = SecurityWorkflowApplication.class)
 @Import(SecurityConfig.class)
 public class WorkflowControllerTest {
 

@@ -32,9 +32,12 @@ public class WorkflowStatusClient {
         this.serviceTokenProvider = serviceTokenProvider;
     }
 
+    private static final int MAX_ATTEMPTS = 3;
+
     /**
      * Sends a workflow status callback to Application Service.
      * Uses the internal callback endpoint for workflow status updates.
+     * Retries on transient errors (5xx, timeouts) and fails fast on 4xx.
      * Callback failures are caught and logged — they must not cause recursive workflow failures.
      *
      * @param callback the callback payload
@@ -45,20 +48,36 @@ public class WorkflowStatusClient {
         log.info("Sending workflow status callback: applicationId={}, processInstanceId={}, status={}",
                 callback.getApplicationId(), callback.getProcessInstanceId(), callback.getStatus());
 
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", serviceTokenProvider.getAuthorizationHeader());
-            HttpEntity<WorkflowStatusCallback> entity = new HttpEntity<>(callback, headers);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Authorization", serviceTokenProvider.getAuthorizationHeader());
+        HttpEntity<WorkflowStatusCallback> entity = new HttpEntity<>(callback, headers);
 
-            restTemplate.postForEntity(url, entity, Void.class);
-
-            log.info("Workflow status callback sent successfully: applicationId={}, status={}",
-                    callback.getApplicationId(), callback.getStatus());
-        } catch (Exception e) {
-            // Callback failure must NOT cause recursive workflow failure
-            log.error("Failed to send workflow status callback: applicationId={}, status={}, error={}",
-                    callback.getApplicationId(), callback.getStatus(), e.getMessage());
+        int attempts = 0;
+        while (attempts < MAX_ATTEMPTS) {
+            attempts++;
+            try {
+                restTemplate.postForEntity(url, entity, Void.class);
+                log.info("Workflow status callback sent successfully on attempt {}: applicationId={}, status={}",
+                        attempts, callback.getApplicationId(), callback.getStatus());
+                return;
+            } catch (org.springframework.web.client.HttpClientErrorException e) {
+                // Permanent 4xx client error: do not retry
+                log.error("Permanent 4xx error sending callback on attempt {}: status={}, message={}",
+                        attempts, e.getStatusCode(), e.getMessage());
+                break;
+            } catch (org.springframework.web.client.HttpServerErrorException | org.springframework.web.client.ResourceAccessException e) {
+                // Transient 5xx server error or I/O failure: retry
+                log.warn("Transient error sending callback on attempt {}/{}: error={}",
+                        attempts, MAX_ATTEMPTS, e.getMessage());
+                if (attempts >= MAX_ATTEMPTS) {
+                    log.error("Exhausted all {} attempts sending workflow callback for applicationId={}",
+                            MAX_ATTEMPTS, callback.getApplicationId());
+                }
+            } catch (Exception e) {
+                log.error("Unexpected error sending callback on attempt {}: error={}", attempts, e.getMessage());
+                break;
+            }
         }
     }
 }

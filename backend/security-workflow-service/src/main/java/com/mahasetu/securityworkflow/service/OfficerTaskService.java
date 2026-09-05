@@ -75,19 +75,23 @@ public class OfficerTaskService {
      * Claims a task on behalf of the authenticated officer.
      */
     public OfficerReviewTaskResponse claimTask(String taskId, String officerId) {
-        log.info("Officer {} attempting to claim task {}", officerId, taskId);
+        log.info("[OFFICER_EVENT] Officer {} attempting to claim task {}", officerId, taskId);
         Task task = findActiveOfficerTaskOrThrow(taskId);
 
         if (task.getAssignee() != null) {
             if (task.getAssignee().equals(officerId)) {
-                log.info("Task {} is already claimed by officer {}", taskId, officerId);
+                log.info("[OFFICER_EVENT] Task {} is already claimed by officer {}", taskId, officerId);
                 return mapToResponse(task);
             }
             throw new InvalidTaskOperationException("Task " + taskId + " is already claimed by another officer: " + task.getAssignee());
         }
 
         taskService.claim(taskId, officerId);
-        log.info("Task {} successfully claimed by officer {}", taskId, officerId);
+        log.info("[OFFICER_EVENT] Task {} successfully claimed by officer {}", taskId, officerId);
+        Map<String, Object> variables = taskService.getVariables(taskId);
+        String applicationId = variables != null ? (String) variables.get("applicationId") : null;
+        auditService.recordOfficerClaim(applicationId, taskId, officerId);
+
         Task updatedTask = taskService.createTaskQuery().taskId(taskId).singleResult();
         return mapToResponse(updatedTask != null ? updatedTask : task);
     }
@@ -96,7 +100,7 @@ public class OfficerTaskService {
      * Unclaims a task previously claimed by the authenticated officer.
      */
     public OfficerReviewTaskResponse unclaimTask(String taskId, String officerId) {
-        log.info("Officer {} attempting to unclaim task {}", officerId, taskId);
+        log.info("[OFFICER_EVENT] Officer {} attempting to unclaim task {}", officerId, taskId);
         Task task = findActiveOfficerTaskOrThrow(taskId);
 
         if (task.getAssignee() == null) {
@@ -107,8 +111,12 @@ public class OfficerTaskService {
             throw new InvalidTaskOperationException("Cannot unclaim task " + taskId + " claimed by another officer: " + task.getAssignee());
         }
 
+        Map<String, Object> variables = taskService.getVariables(taskId);
+        String applicationId = variables != null ? (String) variables.get("applicationId") : null;
         taskService.setAssignee(taskId, null);
-        log.info("Task {} successfully unclaimed by officer {}", taskId, officerId);
+        log.info("[OFFICER_EVENT] Task {} successfully unclaimed by officer {}", taskId, officerId);
+        auditService.recordOfficerUnclaim(applicationId, taskId, officerId);
+
         Task updatedTask = taskService.createTaskQuery().taskId(taskId).singleResult();
         return mapToResponse(updatedTask != null ? updatedTask : task);
     }
@@ -132,7 +140,56 @@ public class OfficerTaskService {
             throw new ValidationException("Reason is required when rejecting an application");
         }
 
-        Task task = findActiveOfficerTaskOrThrow(taskId);
+        Task task = taskService.createTaskQuery()
+                .taskId(taskId)
+                .active()
+                .singleResult();
+
+        if (task == null) {
+            HistoricTaskInstance historicTask = historyService.createHistoricTaskInstanceQuery()
+                    .taskId(taskId)
+                    .singleResult();
+
+            if (historicTask != null && historicTask.getEndTime() != null) {
+                log.warn("Task {} exists in history and has already completed", taskId);
+                org.camunda.bpm.engine.history.HistoricVariableInstance histOfficer = historyService.createHistoricVariableInstanceQuery()
+                        .processInstanceId(historicTask.getProcessInstanceId())
+                        .variableName("officerId")
+                        .singleResult();
+                org.camunda.bpm.engine.history.HistoricVariableInstance histDecision = historyService.createHistoricVariableInstanceQuery()
+                        .processInstanceId(historicTask.getProcessInstanceId())
+                        .variableName("officerDecision")
+                        .singleResult();
+                org.camunda.bpm.engine.history.HistoricVariableInstance histAppId = historyService.createHistoricVariableInstanceQuery()
+                        .processInstanceId(historicTask.getProcessInstanceId())
+                        .variableName("applicationId")
+                        .singleResult();
+
+                if (histOfficer != null && officerId.equals(histOfficer.getValue()) &&
+                    histDecision != null && normalizedDecision.equals(histDecision.getValue())) {
+                    log.info("Duplicate decision detected for completed task {}: returning idempotent response", taskId);
+                    return new OfficerDecisionResponse(
+                            taskId,
+                            histAppId != null ? (String) histAppId.getValue() : null,
+                            normalizedDecision,
+                            officerId,
+                            reason,
+                            LocalDateTime.now(),
+                            "COMPLETED"
+                    );
+                }
+                throw new TaskAlreadyCompletedException(taskId);
+            }
+
+            log.warn("Task {} was not found", taskId);
+            throw new TaskNotFoundException(taskId);
+        }
+
+        if (!OFFICER_TASK_DEFINITION_KEY.equals(task.getTaskDefinitionKey())) {
+            log.warn("Task {} has definition key {} which is not an officer review task",
+                    taskId, task.getTaskDefinitionKey());
+            throw new InvalidTaskOperationException("Task " + taskId + " is not an officer review task");
+        }
 
         if (task.getAssignee() != null && !task.getAssignee().equals(officerId)) {
             throw new InvalidTaskOperationException("Task " + taskId + " is claimed by another officer: " + task.getAssignee());

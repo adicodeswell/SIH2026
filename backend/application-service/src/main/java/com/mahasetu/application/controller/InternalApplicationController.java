@@ -27,4 +27,10 @@ public class InternalApplicationController {
             @Valid @RequestBody WorkflowStatusCallbackRequest request) {
         return ResponseEntity.ok(applicationService.applyWorkflowStatusCallback(applicationId, request));
     }
+
+    @PostMapping("/internal/v1/applications/{applicationId}/retry-workflow")
+    @PreAuthorize("hasAnyRole('SERVICE', 'ADMIN')")
+    public ResponseEntity<ApplicationResponse> retryWorkflow(@PathVariable String applicationId) {
+        return ResponseEntity.ok(applicationService.retryWorkflow(applicationId));
+    }
 }

@@ -96,10 +96,45 @@ class WorkflowStatusClientTest {
         );
 
         when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(Void.class)))
-                .thenThrow(new RestClientException("Connection refused"));
+                .thenThrow(new org.springframework.web.client.ResourceAccessException("Connection refused"));
 
         // Must not throw — swallowing callback failures avoids recursive workflow crash
         assertDoesNotThrow(() -> client.sendStatusCallback(callback));
-        verify(restTemplate).postForEntity(anyString(), any(HttpEntity.class), eq(Void.class));
+        verify(restTemplate, times(3)).postForEntity(anyString(), any(HttpEntity.class), eq(Void.class));
+    }
+
+    @Test
+    void testSendStatusCallback_TransientErrorRetriedAndSucceeds() {
+        WorkflowStatusCallback callback = new WorkflowStatusCallback(
+                "APP-4004",
+                "proc-inst-101",
+                "PENDING_OFFICER_REVIEW",
+                null
+        );
+
+        when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(Void.class)))
+                .thenThrow(new org.springframework.web.client.ResourceAccessException("Read timed out"))
+                .thenReturn(null);
+
+        assertDoesNotThrow(() -> client.sendStatusCallback(callback));
+        verify(restTemplate, times(2)).postForEntity(anyString(), any(HttpEntity.class), eq(Void.class));
+    }
+
+    @Test
+    void testSendStatusCallback_Permanent4xx_FailsFastWithoutRetry() {
+        WorkflowStatusCallback callback = new WorkflowStatusCallback(
+                "APP-5005",
+                "proc-inst-202",
+                "APPROVED",
+                null
+        );
+
+        when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(Void.class)))
+                .thenThrow(org.springframework.web.client.HttpClientErrorException.create(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "Bad Request", org.springframework.http.HttpHeaders.EMPTY, null, null));
+
+        assertDoesNotThrow(() -> client.sendStatusCallback(callback));
+        // Permanent 4xx should fail fast without retry
+        verify(restTemplate, times(1)).postForEntity(anyString(), any(HttpEntity.class), eq(Void.class));
     }
 }

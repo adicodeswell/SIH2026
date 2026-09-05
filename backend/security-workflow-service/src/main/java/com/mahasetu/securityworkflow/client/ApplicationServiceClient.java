@@ -21,11 +21,27 @@ public class ApplicationServiceClient {
         this.serviceTokenProvider = serviceTokenProvider;
     }
 
+    private static final int MAX_ATTEMPTS = 3;
+
     public ApplicationResponse getApplication(String applicationId) {
         String url = applicationServiceUrl + "/api/v1/applications/" + applicationId;
         org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
         headers.set("Authorization", serviceTokenProvider.getAuthorizationHeader());
         org.springframework.http.HttpEntity<Void> entity = new org.springframework.http.HttpEntity<>(headers);
-        return restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, entity, ApplicationResponse.class).getBody();
+
+        int attempts = 0;
+        while (attempts < MAX_ATTEMPTS) {
+            attempts++;
+            try {
+                return restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, entity, ApplicationResponse.class).getBody();
+            } catch (org.springframework.web.client.HttpClientErrorException e) {
+                throw e; // Fail fast on 4xx
+            } catch (org.springframework.web.client.HttpServerErrorException | org.springframework.web.client.ResourceAccessException e) {
+                if (attempts >= MAX_ATTEMPTS) {
+                    throw e;
+                }
+            }
+        }
+        return null;
     }
 }
