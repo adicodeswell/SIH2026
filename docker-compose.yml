@@ -93,3 +93,10 @@ services:
         condition: service_started
       interoperability-service:
         condition: service_started
+
+  frontend:
+    image: nginx:alpine
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    ports:
+      - "3000:80"
