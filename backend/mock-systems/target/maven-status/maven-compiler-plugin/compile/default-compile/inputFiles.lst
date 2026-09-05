@@ -1,4 +1,4 @@
-/home/adicodes/SIH_PROJECT/SIH2026/backend/mock-systems/src/main/java/com/mahasetu/mocks/controller/EmploymentMockController.java
-/home/adicodes/SIH_PROJECT/SIH2026/backend/mock-systems/src/main/java/com/mahasetu/mocks/controller/EducationMockController.java
-/home/adicodes/SIH_PROJECT/SIH2026/backend/mock-systems/src/main/java/com/mahasetu/mocks/MockSystemsApplication.java
-/home/adicodes/SIH_PROJECT/SIH2026/backend/mock-systems/src/main/java/com/mahasetu/mocks/controller/HealthMockController.java
+/home/babu/SIH/SIH2026/backend/mock-systems/src/main/java/com/mahasetu/mocks/MockSystemsApplication.java
+/home/babu/SIH/SIH2026/backend/mock-systems/src/main/java/com/mahasetu/mocks/controller/EmploymentMockController.java
+/home/babu/SIH/SIH2026/backend/mock-systems/src/main/java/com/mahasetu/mocks/controller/HealthMockController.java
+/home/babu/SIH/SIH2026/backend/mock-systems/src/main/java/com/mahasetu/mocks/controller/EducationMockController.java
