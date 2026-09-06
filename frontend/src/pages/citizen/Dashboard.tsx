@@ -1,23 +1,116 @@
+import { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { interoperabilityApi, applicationApi } from '../../lib/api';
 import { Link } from 'react-router-dom';
 
 export default function CitizenDashboard() {
+  const { token, logout } = useAuth();
+  
+  // To get the citizen ID (e.g. MH1001), decode the JWT payload
+  const username = token ? JSON.parse(atob(token.split('.')[1])).preferred_username : '';
+  
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleFetchData = async () => {
+    setLoading(true);
+    try {
+      // 1. Fetch cross-departmental data magically
+      const response = await interoperabilityApi.get(`/api/v1/interop/fetch/all/${username}`);
+      setData(response.data);
+    } catch (error) {
+      console.error("Failed to fetch interop data", error);
+      alert("Error contacting Interoperability Service. Is it running on 8082?");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitApplication = async () => {
+    try {
+      // 2. Submit the verified data directly to the Application Service
+      await applicationApi.post('/api/v1/applications', {
+        citizenId: username,
+        schemeName: "State Youth Tech Scholarship",
+        verifiedData: data
+      });
+      setSubmitted(true);
+    } catch (error) {
+      console.error("Failed to submit application", error);
+      alert("Error submitting application. Is Application Service running on 8081?");
+    }
+  };
+
   return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold text-gray-800 mb-4">Citizen Dashboard</h1>
-      <p className="text-gray-600 mb-6">Welcome! Apply for government schemes below without uploading any physical documents.</p>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition bg-white">
-          <h2 className="text-xl font-bold text-blue-700 mb-2">State Youth Tech Scholarship</h2>
-          <p className="text-sm text-gray-600 mb-4">Financial assistance for unemployed youth pursuing technical degrees.</p>
-          <button className="px-4 py-2 bg-blue-50 text-blue-700 rounded font-semibold border border-blue-200 hover:bg-blue-100">
-            Apply Now
-          </button>
+    <div className="min-h-screen bg-gray-50 p-8">
+      <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-800">Citizen Portal</h1>
+          <button onClick={logout} className="text-red-500 font-semibold hover:underline">Logout</button>
         </div>
-      </div>
-      
-      <div className="mt-8">
-        <Link to="/" className="text-blue-500 hover:underline">&larr; Back to Home</Link>
+
+        <p className="text-gray-600 mb-6">
+          Welcome <span className="font-bold text-blue-600">{username}</span>! Apply for government schemes below. 
+          Zero document uploads required.
+        </p>
+        
+        {/* Scheme Selection */}
+        <div className="border border-blue-200 rounded-lg p-6 bg-blue-50 mb-8">
+          <h2 className="text-xl font-bold text-blue-800 mb-2">State Youth Tech Scholarship</h2>
+          <p className="text-sm text-blue-600 mb-4">Financial assistance for youth pursuing technical degrees.</p>
+          
+          {!data && !loading && (
+            <button 
+              onClick={handleFetchData}
+              className="px-6 py-2 bg-blue-600 text-white rounded font-semibold shadow hover:bg-blue-700 transition"
+            >
+              Start Application & Fetch My Records
+            </button>
+          )}
+
+          {loading && (
+            <div className="text-blue-600 font-semibold animate-pulse">
+              Contacting Health, Education, and Employment departments...
+            </div>
+          )}
+        </div>
+
+        {/* Display Fetched Canonical Data */}
+        {data && !submitted && (
+          <div className="animate-in fade-in duration-500">
+            <h3 className="text-lg font-bold text-green-700 mb-4">✅ Records Successfully Fetched!</h3>
+            
+            <div className="bg-gray-100 p-4 rounded-lg text-sm font-mono overflow-x-auto mb-6 text-gray-800">
+              <pre>{JSON.stringify(data, null, 2)}</pre>
+            </div>
+
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+              <p className="text-yellow-800 text-sm font-semibold">
+                Consent Declaration: I hereby authorize the Govt of Maharashtra to use my fetched data to evaluate this scheme.
+              </p>
+            </div>
+
+            <button 
+              onClick={handleSubmitApplication}
+              className="w-full px-6 py-3 bg-green-600 text-white rounded font-bold shadow-lg hover:bg-green-700 transition"
+            >
+              Grant Consent & Submit Final Application
+            </button>
+          </div>
+        )}
+
+        {/* Success State */}
+        {submitted && (
+          <div className="bg-green-100 border border-green-300 text-green-800 p-6 rounded-lg text-center animate-in zoom-in duration-500">
+            <h3 className="text-2xl font-bold mb-2">Application Submitted!</h3>
+            <p>Your application has been routed to the Officer Workflow Engine for final approval.</p>
+          </div>
+        )}
+
+        <div className="mt-8 text-center border-t pt-4">
+          <Link to="/" className="text-gray-500 hover:underline">Return to Homepage</Link>
+        </div>
       </div>
     </div>
   );
