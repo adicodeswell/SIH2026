@@ -1,4 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import CitizenDashboard from './pages/citizen/Dashboard';
@@ -6,14 +8,27 @@ import OfficerDashboard from './pages/officer/Dashboard';
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/citizen" element={<CitizenDashboard />} />
-        <Route path="/officer" element={<OfficerDashboard />} />
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          
+          {/* Protected Routes */}
+          <Route path="/citizen" element={
+            <ProtectedRoute>
+              <CitizenDashboard />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/officer" element={
+            <ProtectedRoute>
+              <OfficerDashboard />
+            </ProtectedRoute>
+          } />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
 
