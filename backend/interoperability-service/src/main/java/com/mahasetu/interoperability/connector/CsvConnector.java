@@ -14,7 +14,7 @@ public class CsvConnector implements GovernmentSystemConnector {
     private final WebClient webClient;
 
     public CsvConnector(WebClient.Builder webClientBuilder) {
-        this.webClient = webClientBuilder.baseUrl("http://localhost:8091").build();
+        this.webClient = webClientBuilder.baseUrl("http://mock-systems:8091").build();
     }
 
     @Override

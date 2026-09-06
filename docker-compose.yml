@@ -5,6 +5,8 @@ services:
       POSTGRES_DB: mahasetu
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+    extra_hosts:
+      - "localhost:host-gateway"
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
@@ -23,8 +25,13 @@ services:
       KC_DB_URL: ${KEYCLOAK_DB_URL:-jdbc:postgresql://ep-proud-tree-a5mvkwlf-pooler.us-east-2.aws.neon.tech:5432/mahasetu_keycloak?sslmode=require}
       KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-neondb_owner}
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-npg_n7J6NReErVwU}
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 8080
+      KC_HOSTNAME_STRICT_BACKCHANNEL: "true"
     volumes:
       - ./infrastructure/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    extra_hosts:
+      - "localhost:host-gateway"
     ports:
       - "8080:8080"
 
@@ -32,6 +39,8 @@ services:
     build:
       context: .
       dockerfile: backend/mock-systems/Dockerfile
+    extra_hosts:
+      - "localhost:host-gateway"
     ports:
       - "8091:8091"
 
@@ -41,6 +50,8 @@ services:
       dockerfile: backend/interoperability-service/Dockerfile
     environment:
       INTEROPERABILITY_SERVICE_TOKEN: ${INTEROPERABILITY_SERVICE_TOKEN:-dev-interop-token}
+    extra_hosts:
+      - "localhost:host-gateway"
     ports:
       - "8082:8082"
     depends_on:
@@ -59,6 +70,8 @@ services:
       WORKFLOW_SERVICE_URL: http://security-workflow-service:8083
       APPLICATION_SERVICE_CLIENT_ID: application-service
       APPLICATION_SERVICE_CLIENT_SECRET: ${APPLICATION_SERVICE_CLIENT_SECRET:-dev-application-service-secret}
+    extra_hosts:
+      - "localhost:host-gateway"
     ports:
       - "8081:8081"
     depends_on:
@@ -73,13 +86,15 @@ services:
       WORKFLOW_DB_URL: ${WORKFLOW_DB_URL:-jdbc:postgresql://ep-proud-tree-a5mvkwlf-pooler.us-east-2.aws.neon.tech:5432/mahasetu_workflow?sslmode=require}
       WORKFLOW_DB_USER: ${WORKFLOW_DB_USER:-neondb_owner}
       WORKFLOW_DB_PASSWORD: ${WORKFLOW_DB_PASSWORD:-npg_n7J6NReErVwU}
-      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/mahasetu
-      KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/mahasetu/protocol/openid-connect/token
+      KEYCLOAK_ISSUER_URI: http://localhost:8080/realms/mahasetu
+      KEYCLOAK_TOKEN_URI: http://localhost:8080/realms/mahasetu/protocol/openid-connect/token
       APPLICATION_SERVICE_URL: http://application-service:8081
       INTEROPERABILITY_SERVICE_URL: http://interoperability-service:8082
       INTEROPERABILITY_SERVICE_TOKEN: ${INTEROPERABILITY_SERVICE_TOKEN:-dev-interop-token}
       SECURITY_WORKFLOW_CLIENT_ID: security-workflow-service
       SECURITY_WORKFLOW_CLIENT_SECRET: ${SECURITY_WORKFLOW_CLIENT_SECRET:-dev-security-workflow-secret}
+    extra_hosts:
+      - "localhost:host-gateway"
     ports:
       - "8083:8083"
     depends_on:
@@ -94,5 +109,7 @@ services:
     image: nginx:alpine
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
+    extra_hosts:
+      - "localhost:host-gateway"
     ports:
       - "3000:80"

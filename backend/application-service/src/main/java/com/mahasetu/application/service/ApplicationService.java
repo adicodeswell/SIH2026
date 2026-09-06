@@ -71,6 +71,7 @@ public class ApplicationService {
             recordEvent(savedApplication, "WORKFLOW_STARTED", ApplicationStatus.SUBMITTED, ApplicationStatus.SUBMITTED,
                     "Workflow started: " + workflowKey, "application-service");
         } catch (Exception e) {
+            e.printStackTrace();
             ApplicationStatus oldStatus = savedApplication.getStatus();
             savedApplication.setStatus(ApplicationStatus.FAILED);
             savedApplication = applicationRepository.save(savedApplication);

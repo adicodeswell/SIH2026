@@ -33,7 +33,7 @@ public class VerificationController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
+            e.printStackTrace(); return ResponseEntity.internalServerError().build();
         }
     }
 
@@ -56,7 +56,7 @@ public class VerificationController {
 
             return ResponseEntity.ok(allData);
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
+            e.printStackTrace(); return ResponseEntity.internalServerError().build();
         }
     }
 }

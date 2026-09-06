@@ -42,7 +42,14 @@ public class ConsentController {
             @RequestBody ConsentRequest request,
             Authentication authentication) {
         
-        String citizenId = authentication.getName();
+        String citizenId;
+        if (authentication instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken jwtAuth) {
+            citizenId = jwtAuth.getToken().getClaimAsString("preferred_username");
+            if (citizenId != null) citizenId = citizenId.toUpperCase();
+        } else {
+            citizenId = authentication.getName().toUpperCase();
+        }
+
         Consent consent = consentService.grantConsent(citizenId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(consent);
     }

@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { interoperabilityApi, applicationApi } from '../../lib/api';
+import { interoperabilityApi, applicationApi, workflowApi } from '../../lib/api';
 import { Link } from 'react-router-dom';
 
 export default function CitizenDashboard() {
   const { token, logout } = useAuth();
   
-  // To get the citizen ID (e.g. MH1001), decode the JWT payload
-  const username = token ? JSON.parse(atob(token.split('.')[1])).preferred_username : '';
+  // Keycloak sometimes returns preferred_username in lowercase. 
+  // We must uppercase it because the backend mock database expects 'MH1001'.
+  const username = token ? JSON.parse(atob(token.split('.')[1])).preferred_username.toUpperCase() : '';
   
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -29,11 +30,17 @@ export default function CitizenDashboard() {
 
   const handleSubmitApplication = async () => {
     try {
-      // 2. Submit the verified data directly to the Application Service
+      // 1. Explicitly grant cryptographic consent for the exact scope the workflow needs
+      await workflowApi.post('/api/v1/consents', {
+        dataScope: 'education,employment,skills',
+        purpose: 'verification',
+        requestingDepartmentId: 'DEPT_EMP'
+      });
+
+      // 2. Submit the application, triggering the workflow which will now find valid consent!
       await applicationApi.post('/api/v1/applications', {
         citizenId: username,
-        schemeName: "State Youth Tech Scholarship",
-        verifiedData: data
+        serviceCode: "SKILL_BENEFIT"
       });
       setSubmitted(true);
     } catch (error) {

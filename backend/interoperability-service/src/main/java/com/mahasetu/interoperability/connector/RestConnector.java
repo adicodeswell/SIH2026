@@ -17,14 +17,14 @@ public class RestConnector implements GovernmentSystemConnector {
     public RestConnector(WebClient.Builder webClientBuilder) {
         // In a real production app, this URL would come from application.yml
         // Hardcoded here to point exactly to our Mock System on port 8091
-        this.webClient = webClientBuilder.baseUrl("http://localhost:8091").build();
+        this.webClient = webClientBuilder.baseUrl("http://mock-systems:8091").build();
     }
 
     @Override
     public RawExternalResponse fetch(String citizenId, ExternalSystem system) {
         
         // 1. Make the HTTP GET request to the mock system
-        // e.g., http://localhost:8091/employment/MH1001
+        // e.g., http://mock-systems:8091/employment/MH1001
         String rawJsonString = webClient.get()
                 .uri("/employment/" + citizenId)
                 .retrieve()

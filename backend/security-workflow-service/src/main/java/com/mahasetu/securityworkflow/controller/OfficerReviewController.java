@@ -44,6 +44,14 @@ public class OfficerReviewController {
         return ResponseEntity.ok(officerTaskService.getOfficerTaskById(taskId));
     }
 
+    private String extractUserId(Authentication authentication) {
+        if (authentication instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken jwtAuth) {
+            String username = jwtAuth.getToken().getClaimAsString("preferred_username");
+            if (username != null) return username;
+        }
+        return authentication.getName();
+    }
+
     /**
      * Claims a pending review task for the authenticated officer.
      */
@@ -51,7 +59,7 @@ public class OfficerReviewController {
     public ResponseEntity<OfficerReviewTaskResponse> claimTask(
             @PathVariable String taskId,
             Authentication authentication) {
-        String officerId = authentication.getName();
+        String officerId = extractUserId(authentication);
         return ResponseEntity.ok(officerTaskService.claimTask(taskId, officerId));
     }
 
@@ -62,7 +70,7 @@ public class OfficerReviewController {
     public ResponseEntity<OfficerReviewTaskResponse> unclaimTask(
             @PathVariable String taskId,
             Authentication authentication) {
-        String officerId = authentication.getName();
+        String officerId = extractUserId(authentication);
         return ResponseEntity.ok(officerTaskService.unclaimTask(taskId, officerId));
     }
 
@@ -75,7 +83,7 @@ public class OfficerReviewController {
             @PathVariable String taskId,
             @Valid @RequestBody OfficerDecisionRequest request,
             Authentication authentication) {
-        String officerId = authentication.getName();
+        String officerId = extractUserId(authentication);
         OfficerDecisionResponse response = officerTaskService.completeOfficerDecision(
                 taskId,
                 officerId,

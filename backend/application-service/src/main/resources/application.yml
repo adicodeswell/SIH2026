@@ -23,7 +23,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_URL:http://localhost:8080}/realms/${KEYCLOAK_REALM:mahasetu}
+          issuer-uri: http://localhost:8080/realms/${KEYCLOAK_REALM:mahasetu}
+          jwk-set-uri: http://keycloak:8080/realms/${KEYCLOAK_REALM:mahasetu}/protocol/openid-connect/certs
       client:
         registration:
           application-service:

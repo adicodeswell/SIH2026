@@ -7,6 +7,7 @@ interface AuthContextType {
   token: string | undefined;
   login: () => void;
   logout: () => void;
+  hasRole: (role: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,9 +50,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = () => keycloak.login();
   const logout = () => keycloak.logout();
+  const hasRole = (role: string) => keycloak.hasRealmRole(role);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isInitialized, token, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, isInitialized, token, login, logout, hasRole }}>
       {children}
     </AuthContext.Provider>
   );

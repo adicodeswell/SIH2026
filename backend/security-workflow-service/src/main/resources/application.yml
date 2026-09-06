@@ -19,7 +19,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/mahasetu}
+          issuer-uri: http://localhost:8080/realms/mahasetu
+          jwk-set-uri: http://keycloak:8080/realms/mahasetu/protocol/openid-connect/certs
       client:
         registration:
           security-workflow-service:
@@ -29,7 +30,7 @@ spring:
             client-secret: ${SECURITY_WORKFLOW_CLIENT_SECRET:}
         provider:
           keycloak:
-            token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8080/realms/mahasetu/protocol/openid-connect/token}
+            token-uri: http://keycloak:8080/realms/mahasetu/protocol/openid-connect/token
 
 management:
   endpoints:

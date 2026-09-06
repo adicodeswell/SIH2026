@@ -16,13 +16,13 @@ function App() {
           
           {/* Protected Routes */}
           <Route path="/citizen" element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['CITIZEN']}>
               <CitizenDashboard />
             </ProtectedRoute>
           } />
           
           <Route path="/officer" element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['OFFICER']}>
               <OfficerDashboard />
             </ProtectedRoute>
           } />

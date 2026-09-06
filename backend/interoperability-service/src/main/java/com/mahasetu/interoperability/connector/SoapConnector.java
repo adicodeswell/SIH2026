@@ -14,7 +14,7 @@ public class SoapConnector implements GovernmentSystemConnector {
     private final WebClient webClient;
 
     public SoapConnector(WebClient.Builder webClientBuilder) {
-        this.webClient = webClientBuilder.baseUrl("http://localhost:8091").build();
+        this.webClient = webClientBuilder.baseUrl("http://mock-systems:8091").build();
     }
 
     @Override

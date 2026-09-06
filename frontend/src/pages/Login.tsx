@@ -2,14 +2,17 @@ import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 
 export default function Login() {
-  const { isAuthenticated, isInitialized, login } = useAuth();
+  const { isAuthenticated, isInitialized, login, hasRole } = useAuth();
 
   if (!isInitialized) {
     return <div className="text-center p-8">Loading...</div>;
   }
 
-  // If they are already authenticated, don't show the login screen again!
+  // If they are already authenticated, redirect to their specific dashboard!
   if (isAuthenticated) {
+    if (hasRole('OFFICER')) {
+      return <Navigate to="/officer" replace />;
+    }
     return <Navigate to="/citizen" replace />;
   }
 
