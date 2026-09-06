@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
 import keycloak from '../lib/auth';
 
 interface AuthContextType {
@@ -15,15 +15,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [token, setToken] = useState<string | undefined>(undefined);
+  const isRun = useRef(false);
 
   useEffect(() => {
-    keycloak.init({ onLoad: 'check-sso', checkLoginIframe: false })
+    // Prevent React StrictMode from initializing Keycloak twice
+    if (isRun.current) return;
+    isRun.current = true;
+
+    // Removing onLoad: 'check-sso' entirely prevents any automatic redirects when you visit the homepage.
+    // It will only redirect when you explicitly click the "Login" button.
+    keycloak.init({ checkLoginIframe: false })
       .then((authenticated) => {
         setIsAuthenticated(authenticated);
         setToken(keycloak.token);
         setIsInitialized(true);
       })
-      .catch(console.error);
+      .catch((err) => {
+        console.error("Keycloak init failed:", err);
+        setIsInitialized(true); // Don't hang the UI if Keycloak is down
+      });
 
     // Refresh token periodically to avoid expiration during active session
     keycloak.onTokenExpired = () => {

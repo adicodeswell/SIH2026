@@ -4,7 +4,7 @@ import Keycloak from 'keycloak-js';
 const keycloakConfig = {
   url: 'http://localhost:8080',
   realm: 'mahasetu',
-  clientId: 'frontend-client', // Assuming a standard public client ID for the React app
+  clientId: 'frontend-portal', // Matches the realm-export.json client ID
 };
 
 const keycloak = new Keycloak(keycloakConfig);
