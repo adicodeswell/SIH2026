@@ -77,7 +77,7 @@ public class ConsentService {
     }
 
     public boolean checkConsent(String citizenId, String dataScope, String purpose) {
-        Optional<Consent> consentOpt = consentRepository.findByCitizenIdAndDataScopeAndPurposeAndStatus(
+        Optional<Consent> consentOpt = consentRepository.findFirstByCitizenIdAndDataScopeAndPurposeAndStatusOrderByGrantedAtDesc(
                 citizenId, dataScope, purpose, "GRANTED");
 
         if (consentOpt.isEmpty()) {

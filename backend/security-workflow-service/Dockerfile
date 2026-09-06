@@ -9,7 +9,7 @@ COPY mock-systems/employment-system/pom.xml mock-systems/employment-system/pom.x
 RUN mvn -pl backend/security-workflow-service dependency:go-offline
 
 COPY backend/security-workflow-service/src backend/security-workflow-service/src
-RUN mvn -pl backend/security-workflow-service clean package -DskipTests
+RUN mvn -pl backend/security-workflow-service clean package -Dmaven.test.skip=true
 
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app

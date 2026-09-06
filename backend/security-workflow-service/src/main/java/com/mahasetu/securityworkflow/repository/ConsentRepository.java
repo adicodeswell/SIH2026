@@ -13,5 +13,5 @@ public interface ConsentRepository extends JpaRepository<Consent, UUID> {
 
     List<Consent> findByCitizenId(String citizenId);
 
-    Optional<Consent> findByCitizenIdAndDataScopeAndPurposeAndStatus(String citizenId, String dataScope, String purpose, String status);
+    Optional<Consent> findFirstByCitizenIdAndDataScopeAndPurposeAndStatusOrderByGrantedAtDesc(String citizenId, String dataScope, String purpose, String status);
 }
