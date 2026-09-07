@@ -64,8 +64,8 @@ mahasetu:
       SCHOLARSHIP:
         dataScope: "education"
         purpose: "scholarship_verification"
-      SRV-EDU:
-        dataScope: "education"
+      PM_JAY:
+        dataScope: "education,health"
         purpose: "verification"
 
 logging:
