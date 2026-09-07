@@ -19,8 +19,9 @@ public class HealthTransformer implements DataTransformer {
             // Very simple XML parsing for MVP (Regex)
             data.setCitizenId(extractTag(xmlData, "CitizenID"));
             data.setFullName(extractTag(xmlData, "Name"));
-            
-            // Health specific data could be added to CanonicalCitizenData in the future.
+            data.setAadhaarNumber(extractTag(xmlData, "AadhaarNumber"));
+            data.setDisabilityStatus(extractTag(xmlData, "DisabilityStatus"));
+            data.setBloodGroup(extractTag(xmlData, "BloodGroup"));
             
             return data;
         } catch (Exception e) {

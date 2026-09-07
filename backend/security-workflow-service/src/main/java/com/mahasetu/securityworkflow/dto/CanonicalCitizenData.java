@@ -1,14 +1,37 @@
 package com.mahasetu.securityworkflow.dto;
 
+/**
+ * The standard internal data representation for MahaSetu.
+ * All external data formats (JSON, XML, CSV) from different government 
+ * departments are transformed into this single standard model.
+ */
 public class CanonicalCitizenData {
+    
+    // Core Identity
     private String citizenId;
     private String fullName;
     private String dateOfBirth;
+    private String aadhaarNumber;
+    private String category;
+    
+    // Financial & Health Data
+    private Double annualFamilyIncome;
+    private String disabilityStatus;
+    private String bankAccountNumber;
+    private String bloodGroup;
+
+    // Department Specific Data
     private String employmentStatus;
     private String highestDegree;
     private Integer graduationYear;
+    private String universityName;
     private String skillStatus;
 
+    // Constructors
+    public CanonicalCitizenData() {
+    }
+
+    // Getters and Setters
     public String getCitizenId() { return citizenId; }
     public void setCitizenId(String citizenId) { this.citizenId = citizenId; }
 
@@ -18,6 +41,24 @@ public class CanonicalCitizenData {
     public String getDateOfBirth() { return dateOfBirth; }
     public void setDateOfBirth(String dateOfBirth) { this.dateOfBirth = dateOfBirth; }
 
+    public String getAadhaarNumber() { return aadhaarNumber; }
+    public void setAadhaarNumber(String aadhaarNumber) { this.aadhaarNumber = aadhaarNumber; }
+
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
+
+    public Double getAnnualFamilyIncome() { return annualFamilyIncome; }
+    public void setAnnualFamilyIncome(Double annualFamilyIncome) { this.annualFamilyIncome = annualFamilyIncome; }
+
+    public String getDisabilityStatus() { return disabilityStatus; }
+    public void setDisabilityStatus(String disabilityStatus) { this.disabilityStatus = disabilityStatus; }
+
+    public String getBankAccountNumber() { return bankAccountNumber; }
+    public void setBankAccountNumber(String bankAccountNumber) { this.bankAccountNumber = bankAccountNumber; }
+
+    public String getBloodGroup() { return bloodGroup; }
+    public void setBloodGroup(String bloodGroup) { this.bloodGroup = bloodGroup; }
+
     public String getEmploymentStatus() { return employmentStatus; }
     public void setEmploymentStatus(String employmentStatus) { this.employmentStatus = employmentStatus; }
 
@@ -26,6 +67,9 @@ public class CanonicalCitizenData {
 
     public Integer getGraduationYear() { return graduationYear; }
     public void setGraduationYear(Integer graduationYear) { this.graduationYear = graduationYear; }
+
+    public String getUniversityName() { return universityName; }
+    public void setUniversityName(String universityName) { this.universityName = universityName; }
 
     public String getSkillStatus() { return skillStatus; }
     public void setSkillStatus(String skillStatus) { this.skillStatus = skillStatus; }

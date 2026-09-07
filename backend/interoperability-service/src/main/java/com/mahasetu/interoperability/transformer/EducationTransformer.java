@@ -22,7 +22,7 @@ public class EducationTransformer implements DataTransformer {
                     data.setCitizenId(values[0]);
                     data.setFullName(values[1]);
                     data.setHighestDegree(values[2]);
-                    // values[3] is UNIVERSITY (not in canonical yet, skipping)
+                    data.setUniversityName(values[3]);
                     data.setGraduationYear(Integer.parseInt(values[4].trim()));
                 }
             }

@@ -185,7 +185,7 @@ export default function CitizenDashboard() {
                     </h3>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Identity Data */}
+                      {/* Common Identity Data (Always visible) */}
                       <div className="space-y-2">
                         <Label className="text-muted-foreground text-xs uppercase tracking-wider">Citizen ID (SSO)</Label>
                         <div className="relative">
@@ -204,41 +204,99 @@ export default function CitizenDashboard() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-muted-foreground text-xs uppercase tracking-wider">Date of Birth</Label>
+                        <Label className="text-muted-foreground text-xs uppercase tracking-wider">Aadhaar Number (Masked)</Label>
                         <div className="relative">
-                          <Input value={data.dateOfBirth || "Not Found"} disabled className="bg-emerald-50/50 border-emerald-200 text-slate-800 pr-10 font-medium" />
-                          {data.dateOfBirth && <CheckCircle2 className="w-4 h-4 text-emerald-500 absolute right-3 top-3" />}
+                          <Input value={data.aadhaarNumber || "Not Found"} disabled className="bg-emerald-50/50 border-emerald-200 text-slate-800 pr-10 font-medium" />
+                          {data.aadhaarNumber && <CheckCircle2 className="w-4 h-4 text-emerald-500 absolute right-3 top-3" />}
                         </div>
+                        {data.aadhaarNumber && <p className="text-[10px] text-emerald-600 font-medium flex items-center justify-end"><CheckCircle2 className="w-3 h-3 mr-1"/> Verified by Health DB (UIDAI Auth)</p>}
                       </div>
 
-                      {/* Academic Data */}
-                      <div className="space-y-2">
-                        <Label className="text-muted-foreground text-xs uppercase tracking-wider">Highest Degree</Label>
-                        <div className="relative">
-                          <Input value={data.highestDegree || "Not Found"} disabled className="bg-emerald-50/50 border-emerald-200 text-slate-800 pr-10 font-medium" />
-                          {data.highestDegree && <CheckCircle2 className="w-4 h-4 text-emerald-500 absolute right-3 top-3" />}
-                        </div>
-                        {data.highestDegree && <p className="text-[10px] text-emerald-600 font-medium flex items-center justify-end"><CheckCircle2 className="w-3 h-3 mr-1"/> Verified by Dept of Education</p>}
-                      </div>
+                      {/* Financial/Category Data (Crucial for Scholarships) */}
+                      {(selectedScheme.serviceCode === 'SKILL_BENEFIT' || selectedScheme.serviceCode === 'SCHOLARSHIP') && (
+                        <>
+                          <div className="space-y-2">
+                            <Label className="text-muted-foreground text-xs uppercase tracking-wider">Annual Family Income</Label>
+                            <div className="relative">
+                              <Input value={data.annualFamilyIncome ? `₹${data.annualFamilyIncome.toLocaleString()}` : "Not Found"} disabled className="bg-emerald-50/50 border-emerald-200 text-slate-800 pr-10 font-medium" />
+                              {data.annualFamilyIncome && <CheckCircle2 className="w-4 h-4 text-emerald-500 absolute right-3 top-3" />}
+                            </div>
+                            {data.annualFamilyIncome && <p className="text-[10px] text-emerald-600 font-medium flex items-center justify-end"><CheckCircle2 className="w-3 h-3 mr-1"/> Verified by Employment Dept</p>}
+                          </div>
 
-                      <div className="space-y-2">
-                        <Label className="text-muted-foreground text-xs uppercase tracking-wider">Graduation Year</Label>
-                        <div className="relative">
-                          <Input value={data.graduationYear || "Not Found"} disabled className="bg-emerald-50/50 border-emerald-200 text-slate-800 pr-10 font-medium" />
-                          {data.graduationYear && <CheckCircle2 className="w-4 h-4 text-emerald-500 absolute right-3 top-3" />}
-                        </div>
-                      </div>
+                          <div className="space-y-2">
+                            <Label className="text-muted-foreground text-xs uppercase tracking-wider">Category</Label>
+                            <div className="relative">
+                              <Input value={data.category || "Not Found"} disabled className="bg-emerald-50/50 border-emerald-200 text-slate-800 pr-10 font-medium" />
+                              {data.category && <CheckCircle2 className="w-4 h-4 text-emerald-500 absolute right-3 top-3" />}
+                            </div>
+                            {data.category && <p className="text-[10px] text-emerald-600 font-medium flex items-center justify-end"><CheckCircle2 className="w-3 h-3 mr-1"/> Verified</p>}
+                          </div>
+                        </>
+                      )}
+
+                      {/* Education Data (Visible for Scholarships & Skills) */}
+                      {(selectedScheme.serviceCode === 'SKILL_BENEFIT' || selectedScheme.serviceCode === 'SCHOLARSHIP') && (
+                        <>
+                          <div className="space-y-2">
+                            <Label className="text-muted-foreground text-xs uppercase tracking-wider">University Name</Label>
+                            <div className="relative">
+                              <Input value={data.universityName || "Not Found"} disabled className="bg-emerald-50/50 border-emerald-200 text-slate-800 pr-10 font-medium" />
+                              {data.universityName && <CheckCircle2 className="w-4 h-4 text-emerald-500 absolute right-3 top-3" />}
+                            </div>
+                            {data.universityName && <p className="text-[10px] text-emerald-600 font-medium flex items-center justify-end"><CheckCircle2 className="w-3 h-3 mr-1"/> Verified by Dept of Education</p>}
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label className="text-muted-foreground text-xs uppercase tracking-wider">Highest Degree</Label>
+                            <div className="relative">
+                              <Input value={data.highestDegree || "Not Found"} disabled className="bg-emerald-50/50 border-emerald-200 text-slate-800 pr-10 font-medium" />
+                              {data.highestDegree && <CheckCircle2 className="w-4 h-4 text-emerald-500 absolute right-3 top-3" />}
+                            </div>
+                            {data.highestDegree && <p className="text-[10px] text-emerald-600 font-medium flex items-center justify-end"><CheckCircle2 className="w-3 h-3 mr-1"/> Verified by Dept of Education</p>}
+                          </div>
+                        </>
+                      )}
 
                       {/* Employment Data */}
-                      <div className="space-y-2">
-                        <Label className="text-muted-foreground text-xs uppercase tracking-wider">Employment Status</Label>
-                        <div className="relative">
-                          <Input value={data.employmentStatus || "Not Found"} disabled className="bg-emerald-50/50 border-emerald-200 text-slate-800 pr-10 font-medium" />
-                          {data.employmentStatus && <CheckCircle2 className="w-4 h-4 text-emerald-500 absolute right-3 top-3" />}
+                      {selectedScheme.serviceCode === 'SKILL_BENEFIT' && (
+                        <div className="space-y-2">
+                          <Label className="text-muted-foreground text-xs uppercase tracking-wider">Employment Status</Label>
+                          <div className="relative">
+                            <Input value={data.employmentStatus || "Not Found"} disabled className="bg-emerald-50/50 border-emerald-200 text-slate-800 pr-10 font-medium" />
+                            {data.employmentStatus && <CheckCircle2 className="w-4 h-4 text-emerald-500 absolute right-3 top-3" />}
+                          </div>
+                          {data.employmentStatus && <p className="text-[10px] text-emerald-600 font-medium flex items-center justify-end"><CheckCircle2 className="w-3 h-3 mr-1"/> Verified by Dept of Employment</p>}
                         </div>
-                        {data.employmentStatus && <p className="text-[10px] text-emerald-600 font-medium flex items-center justify-end"><CheckCircle2 className="w-3 h-3 mr-1"/> Verified by Dept of Employment</p>}
-                      </div>
+                      )}
 
+                      {/* Health Data (Visible for Health Scheme SRV-EDU) */}
+                      {selectedScheme.serviceCode === 'SRV-EDU' && (
+                        <>
+                          <div className="space-y-2">
+                            <Label className="text-muted-foreground text-xs uppercase tracking-wider">Date of Birth</Label>
+                            <div className="relative">
+                              <Input value={data.dateOfBirth || "Not Found"} disabled className="bg-emerald-50/50 border-emerald-200 text-slate-800 pr-10 font-medium" />
+                              {data.dateOfBirth && <CheckCircle2 className="w-4 h-4 text-emerald-500 absolute right-3 top-3" />}
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-muted-foreground text-xs uppercase tracking-wider">Disability Status</Label>
+                            <div className="relative">
+                              <Input value={data.disabilityStatus || "Not Found"} disabled className="bg-emerald-50/50 border-emerald-200 text-slate-800 pr-10 font-medium" />
+                              {data.disabilityStatus && <CheckCircle2 className="w-4 h-4 text-emerald-500 absolute right-3 top-3" />}
+                            </div>
+                            {data.disabilityStatus && <p className="text-[10px] text-emerald-600 font-medium flex items-center justify-end"><CheckCircle2 className="w-3 h-3 mr-1"/> Verified by Dept of Health</p>}
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-muted-foreground text-xs uppercase tracking-wider">Blood Group</Label>
+                            <div className="relative">
+                              <Input value={data.bloodGroup || "Not Found"} disabled className="bg-emerald-50/50 border-emerald-200 text-slate-800 pr-10 font-medium" />
+                              {data.bloodGroup && <CheckCircle2 className="w-4 h-4 text-emerald-500 absolute right-3 top-3" />}
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
 
                     {/* Grievance Note */}
@@ -249,6 +307,44 @@ export default function CitizenDashboard() {
                         <button className="text-primary hover:underline ml-1 font-medium">Is this data incorrect? Raise a grievance.</button>
                       </p>
                     </div>
+                  </div>
+                  
+                  {/* Scheme-Specific Editable Section */}
+                  <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 space-y-4">
+                    <h3 className="text-lg font-semibold border-b border-slate-200 pb-2 text-slate-800">
+                      Additional Details (Required)
+                    </h3>
+                    
+                    {selectedScheme.serviceCode === 'SKILL_BENEFIT' && (
+                      <div className="space-y-2 max-w-md">
+                        <Label className="text-slate-700">Preferred Training Domain</Label>
+                        <select className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                          <option>Software Development (Java/React)</option>
+                          <option>Data Science & AI</option>
+                          <option>Cloud Architecture (AWS/Azure)</option>
+                        </select>
+                      </div>
+                    )}
+                    
+                    {selectedScheme.serviceCode === 'SCHOLARSHIP' && (
+                      <div className="space-y-2 max-w-md">
+                        <Label className="text-slate-700">Select Payout Method</Label>
+                        <select className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                          <option>Direct Bank Transfer (DBT) to {data.bankAccountNumber || 'Account'}</option>
+                          <option>Direct Payment to University</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {selectedScheme.serviceCode === 'SRV-EDU' && (
+                      <div className="space-y-2 max-w-md">
+                        <Label className="text-slate-700">Select Preferred Hospital Network</Label>
+                        <select className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                          <option>Public Hospitals (Full Coverage)</option>
+                          <option>Empanelled Private Hospitals (Co-pay)</option>
+                        </select>
+                      </div>
+                    )}
                   </div>
 
                   {/* DPDP Consent */}

@@ -11,11 +11,20 @@ public class CanonicalCitizenData {
     private String citizenId;
     private String fullName;
     private String dateOfBirth;
+    private String aadhaarNumber;
+    private String category;
     
+    // Financial & Health Data
+    private Double annualFamilyIncome;
+    private String disabilityStatus;
+    private String bankAccountNumber;
+    private String bloodGroup;
+
     // Department Specific Data
     private String employmentStatus;
     private String highestDegree;
     private Integer graduationYear;
+    private String universityName;
     private String skillStatus;
 
     // Constructors
@@ -23,59 +32,45 @@ public class CanonicalCitizenData {
     }
 
     // Getters and Setters
-    public String getCitizenId() {
-        return citizenId;
-    }
+    public String getCitizenId() { return citizenId; }
+    public void setCitizenId(String citizenId) { this.citizenId = citizenId; }
 
-    public void setCitizenId(String citizenId) {
-        this.citizenId = citizenId;
-    }
+    public String getFullName() { return fullName; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
 
-    public String getFullName() {
-        return fullName;
-    }
+    public String getDateOfBirth() { return dateOfBirth; }
+    public void setDateOfBirth(String dateOfBirth) { this.dateOfBirth = dateOfBirth; }
 
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
-    }
+    public String getAadhaarNumber() { return aadhaarNumber; }
+    public void setAadhaarNumber(String aadhaarNumber) { this.aadhaarNumber = aadhaarNumber; }
 
-    public String getDateOfBirth() {
-        return dateOfBirth;
-    }
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
 
-    public void setDateOfBirth(String dateOfBirth) {
-        this.dateOfBirth = dateOfBirth;
-    }
+    public Double getAnnualFamilyIncome() { return annualFamilyIncome; }
+    public void setAnnualFamilyIncome(Double annualFamilyIncome) { this.annualFamilyIncome = annualFamilyIncome; }
 
-    public String getEmploymentStatus() {
-        return employmentStatus;
-    }
+    public String getDisabilityStatus() { return disabilityStatus; }
+    public void setDisabilityStatus(String disabilityStatus) { this.disabilityStatus = disabilityStatus; }
 
-    public void setEmploymentStatus(String employmentStatus) {
-        this.employmentStatus = employmentStatus;
-    }
+    public String getBankAccountNumber() { return bankAccountNumber; }
+    public void setBankAccountNumber(String bankAccountNumber) { this.bankAccountNumber = bankAccountNumber; }
 
-    public String getHighestDegree() {
-        return highestDegree;
-    }
+    public String getBloodGroup() { return bloodGroup; }
+    public void setBloodGroup(String bloodGroup) { this.bloodGroup = bloodGroup; }
 
-    public void setHighestDegree(String highestDegree) {
-        this.highestDegree = highestDegree;
-    }
+    public String getEmploymentStatus() { return employmentStatus; }
+    public void setEmploymentStatus(String employmentStatus) { this.employmentStatus = employmentStatus; }
 
-    public Integer getGraduationYear() {
-        return graduationYear;
-    }
+    public String getHighestDegree() { return highestDegree; }
+    public void setHighestDegree(String highestDegree) { this.highestDegree = highestDegree; }
 
-    public void setGraduationYear(Integer graduationYear) {
-        this.graduationYear = graduationYear;
-    }
+    public Integer getGraduationYear() { return graduationYear; }
+    public void setGraduationYear(Integer graduationYear) { this.graduationYear = graduationYear; }
 
-    public String getSkillStatus() {
-        return skillStatus;
-    }
+    public String getUniversityName() { return universityName; }
+    public void setUniversityName(String universityName) { this.universityName = universityName; }
 
-    public void setSkillStatus(String skillStatus) {
-        this.skillStatus = skillStatus;
-    }
+    public String getSkillStatus() { return skillStatus; }
+    public void setSkillStatus(String skillStatus) { this.skillStatus = skillStatus; }
 }

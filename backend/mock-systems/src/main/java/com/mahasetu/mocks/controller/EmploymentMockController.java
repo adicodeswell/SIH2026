@@ -22,17 +22,23 @@ public class EmploymentMockController {
         
         // Mocking data based on citizen ID
         if (citizenId.equals("MH1001")) {
-            response.put("full_name", "Aditya Sharma");
+            response.put("full_name", "Rahul Patil"); // Match the SQL seed name
             response.put("dob", "2000-01-01");
-            response.put("emp_status", "EMPLOYED");
+            response.put("emp_status", "UNEMPLOYED"); // Change to UNEMPLOYED so they qualify for Tech Scholarship
             response.put("highest_degree", "B.Tech");
             response.put("grad_year", 2022);
+            response.put("annual_family_income", 250000.00); // 2.5 Lakhs
+            response.put("category", "OBC");
+            response.put("bank_account", "XXXX-XXXX-9876");
         } else {
             response.put("full_name", "Unknown Citizen");
             response.put("dob", "1990-01-01");
-            response.put("emp_status", "UNEMPLOYED");
+            response.put("emp_status", "EMPLOYED");
             response.put("highest_degree", "None");
             response.put("grad_year", 0);
+            response.put("annual_family_income", 800000.00);
+            response.put("category", "General");
+            response.put("bank_account", "XXXX-XXXX-0000");
         }
         return response;
     }

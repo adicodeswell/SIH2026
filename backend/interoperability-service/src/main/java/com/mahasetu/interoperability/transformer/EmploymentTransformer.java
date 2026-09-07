@@ -29,6 +29,16 @@ public class EmploymentTransformer implements DataTransformer {
             if (root.has("highest_degree")) data.setHighestDegree(root.get("highest_degree").asText());
             if (root.has("grad_year")) data.setGraduationYear(root.get("grad_year").asInt());
             
+            if (root.has("annual_family_income")) {
+                data.setAnnualFamilyIncome(root.get("annual_family_income").asDouble());
+            }
+            if (root.has("category")) {
+                data.setCategory(root.get("category").asText());
+            }
+            if (root.has("bank_account")) {
+                data.setBankAccountNumber(root.get("bank_account").asText());
+            }
+            
             return data;
         } catch (Exception e) {
             throw new RuntimeException("Failed to transform employment data", e);
