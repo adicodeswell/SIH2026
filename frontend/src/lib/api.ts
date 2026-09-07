@@ -9,10 +9,17 @@ export const interoperabilityApi = axios.create();
 export const workflowApi = axios.create();
 export const officerApi = axios.create();
 
-// Automatically attach the Keycloak JWT Bearer token to every single request
+// Automatically refresh and attach the Keycloak JWT Bearer token to every single request
 const attachToken = async (config: any) => {
   if (keycloak.token) {
-    config.headers.Authorization = `Bearer ${keycloak.token}`;
+    try {
+      // If the token is going to expire within 30 seconds, refresh it BEFORE making the API call!
+      await keycloak.updateToken(30);
+      config.headers.Authorization = `Bearer ${keycloak.token}`;
+    } catch (error) {
+      console.error("Failed to refresh Keycloak token", error);
+      keycloak.login(); // Force re-login if refresh fails
+    }
   }
   return config;
 };
