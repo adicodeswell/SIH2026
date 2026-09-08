@@ -9,6 +9,10 @@ public class ApplicationResponse {
     private String citizenId;
     private String serviceCode;
     private LocalDateTime submittedAt;
+    private Object verificationData;
+
+    public Object getVerificationData() { return verificationData; }
+    public void setVerificationData(Object verificationData) { this.verificationData = verificationData; }
 
     // Getters and Setters
     public String getApplicationNumber() { return applicationNumber; }

@@ -15,6 +15,10 @@ public class WorkflowStatusCallbackRequest {
 
     private String failureReason;
     private String officerId;
+    private Object verificationData;
+
+    public Object getVerificationData() { return verificationData; }
+    public void setVerificationData(Object verificationData) { this.verificationData = verificationData; }
 
     public String getApplicationId() {
         return applicationId;

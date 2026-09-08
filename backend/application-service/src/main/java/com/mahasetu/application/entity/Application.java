@@ -36,6 +36,11 @@ public class Application {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+    @Column(name = "verification_data", columnDefinition = "TEXT")
+    private String verificationData;
+
+    public String getVerificationData() { return verificationData; }
+    public void setVerificationData(String verificationData) { this.verificationData = verificationData; }
 
     // Getters and Setters
     public String getApplicationNumber() { return applicationNumber; }

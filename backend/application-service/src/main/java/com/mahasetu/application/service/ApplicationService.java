@@ -7,6 +7,7 @@ import com.mahasetu.application.exception.ValidationException;
 import com.mahasetu.application.integration.WorkflowClient;
 import com.mahasetu.application.repository.*;
 import org.slf4j.Logger;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,7 @@ public class ApplicationService {
     private final ApplicationRepository applicationRepository;
     private final CitizenRepository citizenRepository;
     private final ServiceRepository serviceRepository;
+    private final ObjectMapper objectMapper;
     private final ApplicationEventRepository eventRepository;
     private final WorkflowClient workflowClient;
 
@@ -36,6 +38,7 @@ public class ApplicationService {
         this.applicationRepository = applicationRepository;
         this.citizenRepository = citizenRepository;
         this.serviceRepository = serviceRepository;
+        this.objectMapper = new ObjectMapper();
         this.eventRepository = eventRepository;
         this.workflowClient = workflowClient;
     }
@@ -100,6 +103,7 @@ public class ApplicationService {
         validateStateTransition(oldStatus, newStatus);
 
         application.setStatus(newStatus);
+
         Application updatedApplication = applicationRepository.save(application);
 
         recordEvent(updatedApplication, "STATUS_UPDATED", oldStatus, newStatus, request.getDescription(), request.getPerformedBy());
@@ -126,6 +130,14 @@ public class ApplicationService {
         validateWorkflowTransition(oldStatus, newStatus);
 
         application.setStatus(newStatus);
+
+        if (request.getVerificationData() != null) {
+            try {
+                application.setVerificationData(objectMapper.writeValueAsString(request.getVerificationData()));
+            } catch(Exception e) {
+                log.error("Failed to serialize verification data", e);
+            }
+        }
         Application updatedApplication = applicationRepository.save(application);
 
         recordEvent(updatedApplication, workflowEventType(newStatus), oldStatus, newStatus,
@@ -281,6 +293,13 @@ public class ApplicationService {
         response.setCitizenId(application.getCitizen().getCitizenId());
         response.setServiceCode(application.getService().getServiceCode());
         response.setSubmittedAt(application.getSubmittedAt());
+        if (application.getVerificationData() != null) {
+            try {
+                response.setVerificationData(objectMapper.readValue(application.getVerificationData(), Object.class));
+            } catch (Exception e) {
+                log.error("Failed to deserialize verification data", e);
+            }
+        }
         return response;
     }
 }
