@@ -58,17 +58,47 @@ class WorkflowResilienceAndHardeningTest {
         consentService = new ConsentService(consentRepository, auditService, consentPolicyService, applicationServiceClient);
     }
 
-    // =========================================================================
+    // // =========================================================================
     // 1. Interoperability Failure & Resilience Tests
-    // =========================================================================
+    // =
+
+    @Test
+    void testInteropWorker_ExceptionMasking_NoSensitiveDataPropagated() throws Exception {
+        when(execution.getVariable("citizenId")).thenReturn("CIT-123");
+        when(execution.getVariable("applicationId")).thenReturn("APP-123");
+        when(execution.getVariable("allowedScopes")).thenReturn(List.of("education"));
+
+        // Simulate a downstream error with a highly sensitive exception message
+        String sensitiveMessage = "Aadhaar=123456789012 bankAccount=1234567890 income=500000";
+        HttpClientErrorException exceptionWithSensitiveData = HttpClientErrorException.create(
+                HttpStatus.BAD_REQUEST, sensitiveMessage, HttpHeaders.EMPTY, null, null);
+
+        when(interoperabilityClient.fetchScopedData("CIT-123", List.of("education")))
+                .thenThrow(exceptionWithSensitiveData);
+
+        BpmnError thrown = assertThrows(BpmnError.class, () -> {
+            interopWorker.execute(execution);
+        });
+
+        // Verify the exception itself doesn't contain the sensitive text
+        assertFalse(thrown.getMessage().contains("Aadhaar="));
+        assertEquals("INTEROP_FETCH_FAILED", thrown.getErrorCode());
+        
+        // Verify execution variable "failureReason" was set to a safe category, NOT the raw message
+        verify(execution).setVariable(eq("failureReason"), argThat(reason -> {
+            String r = (String) reason;
+            return r.contains("INTEROPERABILITY_CLIENT_ERROR") && !r.contains("Aadhaar=");
+        }));
+    }
 
 
 
 
 
-    // =========================================================================
+
+    // // =========================================================================
     // 2. Consent Hardening & Default-Deny Tests
-    // =========================================================================
+    // // =========================================================================
 
 
     @Test

@@ -64,18 +64,18 @@ public class WorkflowStatusClient {
             } catch (org.springframework.web.client.HttpClientErrorException e) {
                 // Permanent 4xx client error: do not retry
                 log.error("Permanent 4xx error sending callback on attempt {}: status={}, message={}",
-                        attempts, e.getStatusCode(), e.getMessage());
+                        attempts, e.getStatusCode(), e.getClass().getSimpleName());
                 break;
             } catch (org.springframework.web.client.HttpServerErrorException | org.springframework.web.client.ResourceAccessException e) {
                 // Transient 5xx server error or I/O failure: retry
                 log.warn("Transient error sending callback on attempt {}/{}: error={}",
-                        attempts, MAX_ATTEMPTS, e.getMessage());
+                        attempts, MAX_ATTEMPTS, e.getClass().getSimpleName());
                 if (attempts >= MAX_ATTEMPTS) {
                     log.error("Exhausted all {} attempts sending workflow callback for applicationId={}",
                             MAX_ATTEMPTS, callback.getApplicationId());
                 }
             } catch (Exception e) {
-                log.error("Unexpected error sending callback on attempt {}: error={}", attempts, e.getMessage());
+                log.error("Unexpected error sending callback on attempt {}: error={}", attempts, e.getClass().getSimpleName());
                 break;
             }
         }

@@ -216,10 +216,10 @@ public class OfficerTaskService {
         try {
             taskService.complete(taskId, completionVariables);
         } catch (OptimisticLockingException e) {
-            log.warn("Concurrent modification on task {}: {}", taskId, e.getMessage());
+            log.warn("Concurrent modification on task {}: {}", taskId, e.getClass().getSimpleName());
             throw new TaskAlreadyCompletedException(taskId);
         } catch (ProcessEngineException e) {
-            log.error("ProcessEngineException completing task {}: {}", taskId, e.getMessage());
+            log.error("ProcessEngineException completing task {}: {}", taskId, e.getClass().getSimpleName());
             throw new TaskAlreadyCompletedException(taskId);
         }
 

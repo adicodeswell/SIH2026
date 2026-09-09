@@ -46,7 +46,7 @@ class VerifyDataWorkerTest {
         ResolvedConsentPolicy policy = new ResolvedConsentPolicy("TEST", Collections.emptySet(), "purpose", "test", "DEPT", Collections.emptySet(), Collections.emptySet());
         when(consentPolicyService.getPolicy("TEST")).thenReturn(policy);
 
-        VerificationResult mockResult = new VerificationResult(VerificationStatus.VERIFIED, Collections.emptyList(), Collections.emptyList());
+        VerificationResult mockResult = new VerificationResult(VerificationStatus.VERIFIED, Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
         when(verificationService.verify(any(), eq(policy))).thenReturn(mockResult);
 
         worker.execute(execution);
