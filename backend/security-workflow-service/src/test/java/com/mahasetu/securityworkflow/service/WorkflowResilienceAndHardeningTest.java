@@ -85,7 +85,7 @@ class WorkflowResilienceAndHardeningTest {
         mockApp.setServiceCode("SKILL_BENEFIT");
         when(applicationServiceClient.getApplication("APP-TEST")).thenReturn(mockApp);
 
-        com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy policy = new com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy("SKILL_BENEFIT", java.util.Set.of(com.mahasetu.securityworkflow.dto.DataScope.SKILLS), "job_verification", "skills", "DEPT-SKILLS");
+        com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy policy = new com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy("SKILL_BENEFIT", java.util.Set.of(com.mahasetu.securityworkflow.dto.DataScope.SKILLS), "job_verification", "skills", "DEPT-SKILLS", java.util.Set.of(), java.util.Set.of());
         when(consentPolicyService.getPolicy("SKILL_BENEFIT")).thenReturn(policy);
 
         when(consentRepository.save(any(Consent.class))).thenAnswer(inv -> {

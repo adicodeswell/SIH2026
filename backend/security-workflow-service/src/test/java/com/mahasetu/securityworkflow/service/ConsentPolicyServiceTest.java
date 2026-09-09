@@ -17,8 +17,8 @@ class ConsentPolicyServiceTest {
     void testValidateAndInitializePolicies_ValidConfig_Succeeds() {
         ConsentPolicyProperties props = new ConsentPolicyProperties();
         props.setPolicies(Map.of(
-                "SKILL_BENEFIT", new ConsentPolicy("education,employment,skills", "verification", "DEPT-SKILLS"),
-                "SCHOLARSHIP", new ConsentPolicy("education", "scholarship", "DEPT-EDU")
+                "SKILL_BENEFIT", new ConsentPolicy("education,employment,skills", "verification", "DEPT-SKILLS", "", ""),
+                "SCHOLARSHIP", new ConsentPolicy("education", "scholarship", "DEPT-EDU", "", "")
         ));
 
         ConsentPolicyService service = new ConsentPolicyService(props);
@@ -41,7 +41,7 @@ class ConsentPolicyServiceTest {
     void testValidateAndInitializePolicies_InvalidScope_ThrowsException() {
         ConsentPolicyProperties props = new ConsentPolicyProperties();
         props.setPolicies(Map.of(
-                "TEST", new ConsentPolicy("education,INVALID_SCOPE", "verification", "DEPT-TEST")
+                "TEST", new ConsentPolicy("education,INVALID_SCOPE", "verification", "DEPT-TEST", "", "")
         ));
 
         ConsentPolicyService service = new ConsentPolicyService(props);
@@ -52,7 +52,7 @@ class ConsentPolicyServiceTest {
     void testValidateAndInitializePolicies_MissingDepartment_ThrowsException() {
         ConsentPolicyProperties props = new ConsentPolicyProperties();
         props.setPolicies(Map.of(
-                "TEST", new ConsentPolicy("education", "verification", "")
+                "TEST", new ConsentPolicy("education", "verification", "", "", "")
         ));
 
         ConsentPolicyService service = new ConsentPolicyService(props);
@@ -63,7 +63,7 @@ class ConsentPolicyServiceTest {
     void testGetPolicy_UnknownService_ThrowsUnsupportedServiceCodeException() {
         ConsentPolicyProperties props = new ConsentPolicyProperties();
         props.setPolicies(Map.of(
-                "SKILL_BENEFIT", new ConsentPolicy("education", "verification", "DEPT-TEST")
+                "SKILL_BENEFIT", new ConsentPolicy("education", "verification", "DEPT-TEST", "", "")
         ));
 
         ConsentPolicyService service = new ConsentPolicyService(props);

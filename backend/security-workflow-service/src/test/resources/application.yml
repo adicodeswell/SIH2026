@@ -53,11 +53,17 @@ mahasetu:
         dataScope: "education,employment,skills"
         purpose: "verification"
         requestingDepartmentId: "DEPT-SKILLS"
+        requiredFields: "fullName,dateOfBirth,highestDegree,employmentStatus,skillStatus"
+        optionalFields: "annualFamilyIncome"
       SCHOLARSHIP:
         dataScope: "education"
         purpose: "scholarship_verification"
         requestingDepartmentId: "DEPT-EDU"
+        requiredFields: "fullName,dateOfBirth,highestDegree,universityName"
+        optionalFields: "annualFamilyIncome"
       SRV-EDU:
         dataScope: "education"
         purpose: "verification"
         requestingDepartmentId: "DEPT-EDU"
+        requiredFields: "fullName,dateOfBirth,highestDegree,universityName"
+        optionalFields: "annualFamilyIncome"

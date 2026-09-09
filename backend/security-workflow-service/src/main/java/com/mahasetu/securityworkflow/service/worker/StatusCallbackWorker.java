@@ -43,7 +43,7 @@ public class StatusCallbackWorker implements JavaDelegate {
                 officerId
         );
 
-        callback.setVerificationData(execution.getVariable("interoperabilityResult"));
+        callback.setVerificationData(execution.getVariable("verificationResult"));
         workflowStatusClient.sendStatusCallback(callback);
     }
 }

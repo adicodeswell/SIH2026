@@ -54,7 +54,7 @@ class ConsentServiceTest {
     }
 
     private ResolvedConsentPolicy createMockPolicy(Set<DataScope> requiredScopes, String purpose, String serviceCode, String dept) {
-        return new ResolvedConsentPolicy(serviceCode, requiredScopes, purpose, "dummy-raw", dept);
+        return new ResolvedConsentPolicy(serviceCode, requiredScopes, purpose, "dummy-raw", dept, java.util.Set.of(), java.util.Set.of());
     }
 
     @Test

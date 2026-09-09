@@ -30,14 +30,22 @@ public class ApplicationController {
     }
 
     @GetMapping("/{id}")
-    public ApplicationResponse getApplicationDetails(@PathVariable("id") String id) {
-        return applicationService.getApplication(id);
+    public ApplicationResponse getApplicationDetails(@PathVariable("id") String id, org.springframework.security.core.Authentication authentication) {
+        ApplicationResponse response = applicationService.getApplication(id);
+        if (authentication != null && authentication.getAuthorities().stream().noneMatch(a -> a.getAuthority().equals("ROLE_OFFICER") || a.getAuthority().equals("ROLE_ADMIN"))) {
+            response.setVerificationData(null);
+        }
+        return response;
     }
 
     @GetMapping("/{id}/status")
-    public ApplicationResponse getApplicationStatus(@PathVariable("id") String id) {
+    public ApplicationResponse getApplicationStatus(@PathVariable("id") String id, org.springframework.security.core.Authentication authentication) {
         // According to contract, returns similar structure or just status.
-        return applicationService.getApplication(id);
+        ApplicationResponse response = applicationService.getApplication(id);
+        if (authentication != null && authentication.getAuthorities().stream().noneMatch(a -> a.getAuthority().equals("ROLE_OFFICER") || a.getAuthority().equals("ROLE_ADMIN"))) {
+            response.setVerificationData(null);
+        }
+        return response;
     }
 
     @GetMapping("/{id}/timeline")

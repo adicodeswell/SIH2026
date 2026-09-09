@@ -16,11 +16,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Resolves consent policy (dataScope + purpose) for a given service code.
- * Validates configured scopes during startup and exposes strongly typed resolved policies.
- * Uses default-deny for unknown codes.
- */
 @Service
 public class ConsentPolicyService {
 
@@ -51,7 +46,7 @@ public class ConsentPolicyService {
             Set<DataScope> scopes = parseAndValidateScopes(config.getDataScope());
 
             resolvedPolicies.put(serviceCode, new ResolvedConsentPolicy(
-                    serviceCode, scopes, config.getPurpose(), config.getDataScope(), config.getRequestingDepartmentId()
+                    serviceCode, scopes, config.getPurpose(), config.getDataScope(), config.getRequestingDepartmentId(), parseFields(config.getRequiredFields()), parseFields(config.getOptionalFields())
             ));
 
             log.info("Loaded and validated policy for {}: requiredScopes={}, purpose={}, dept={}", 
@@ -86,6 +81,20 @@ public class ConsentPolicyService {
         }
         
         return scopes;
+    }
+    
+    private Set<String> parseFields(String fieldsStr) {
+        if (fieldsStr == null || fieldsStr.trim().isEmpty()) {
+            return Collections.emptySet();
+        }
+        Set<String> fields = new java.util.HashSet<>();
+        for (String part : fieldsStr.split(",")) {
+            String cleanPart = part.trim();
+            if (!cleanPart.isEmpty()) {
+                fields.add(cleanPart);
+            }
+        }
+        return fields;
     }
 
     public ResolvedConsentPolicy getPolicy(String serviceCode) {
