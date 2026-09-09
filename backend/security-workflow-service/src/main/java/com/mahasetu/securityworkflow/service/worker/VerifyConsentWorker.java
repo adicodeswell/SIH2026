@@ -46,6 +46,8 @@ public class VerifyConsentWorker implements JavaDelegate {
         // Phase 2 secure, application-aware validation checking coverage, expiry, purpose and department
         boolean consentValid = consentService.checkConsentContext(citizenId, applicationId, serviceCode, policy);
 
+        java.util.List<String> allowedScopes = policy.getRequiredScopes().stream().map(Enum::name).collect(java.util.stream.Collectors.toList());
+        execution.setVariable("allowedScopes", allowedScopes);
         execution.setVariable("consentValid", consentValid);
 
         log.info("[CONSENT_EVENT] VerifyConsentWorker: consent check result for applicationId={}: consentValid={}",

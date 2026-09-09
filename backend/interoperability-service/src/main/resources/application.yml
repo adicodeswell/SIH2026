@@ -8,6 +8,12 @@ spring:
     cache-names: citizenData
     caffeine:
       spec: expireAfterWrite=10m,maximumSize=1000
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/mahasetu
+          jwk-set-uri: http://keycloak:8080/realms/mahasetu/protocol/openid-connect/certs
 
 resilience4j:
   circuitbreaker:
@@ -19,7 +25,3 @@ resilience4j:
         permittedNumberOfCallsInHalfOpenState: 2
         waitDurationInOpenState: 10s
         failureRateThreshold: 50
-
-mahasetu:
-  interoperability:
-    token: ${INTEROPERABILITY_SERVICE_TOKEN:MAHASETU_SUPER_SECRET_TOKEN_2026}

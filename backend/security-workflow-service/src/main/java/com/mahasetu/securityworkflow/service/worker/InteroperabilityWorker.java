@@ -2,7 +2,7 @@ package com.mahasetu.securityworkflow.service.worker;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mahasetu.securityworkflow.client.InteroperabilityClient;
-import com.mahasetu.securityworkflow.dto.CanonicalCitizenData;
+import com.mahasetu.securityworkflow.dto.SourceDataResult;
 import org.camunda.bpm.engine.delegate.BpmnError;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.camunda.bpm.engine.delegate.JavaDelegate;
@@ -29,11 +29,18 @@ public class InteroperabilityWorker implements JavaDelegate {
     public void execute(DelegateExecution execution) throws Exception {
         String citizenId = (String) execution.getVariable("citizenId");
         String applicationId = (String) execution.getVariable("applicationId");
+        
+        @SuppressWarnings("unchecked")
+        List<String> allowedScopes = (List<String>) execution.getVariable("allowedScopes");
 
-        log.info("[INTEROP_EVENT] InteroperabilityWorker: fetching data for applicationId={}, citizenId={}", applicationId, citizenId);
+        log.info("[INTEROP_EVENT] InteroperabilityWorker: fetching data for applicationId={}, citizenId={}, scopes={}", applicationId, citizenId, allowedScopes);
+
+        if (allowedScopes == null || allowedScopes.isEmpty()) {
+            throw new BpmnError("INTEROP_FETCH_FAILED", "No allowed scopes provided by consent boundary");
+        }
 
         try {
-            List<CanonicalCitizenData> data = interoperabilityClient.fetchAllData(citizenId);
+            List<SourceDataResult> data = interoperabilityClient.fetchScopedData(citizenId, allowedScopes);
 
             if (data == null || data.isEmpty()) {
                 log.warn("[INTEROP_EVENT] InteroperabilityWorker: No records found for citizenId={}", citizenId);

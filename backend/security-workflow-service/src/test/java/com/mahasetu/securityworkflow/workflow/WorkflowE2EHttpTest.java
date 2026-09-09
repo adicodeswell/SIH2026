@@ -71,7 +71,7 @@ public class WorkflowE2EHttpTest {
     void setup() {
         member1MockServer.resetAll();
         member2MockServer.resetAll();
-        when(serviceTokenProvider.getAuthorizationHeader()).thenReturn("Bearer dummy-service-token");
+        when(serviceTokenProvider.getAuthorizationHeader()).thenReturn("Bearer MAHASETU_SUPER_SECRET_TOKEN_2026");
 
         for (org.camunda.bpm.engine.runtime.ProcessInstance pi : processEngine.getRuntimeService().createProcessInstanceQuery().list()) {
             processEngine.getRuntimeService().deleteProcessInstance(pi.getId(), "test cleanup");
@@ -102,7 +102,7 @@ public class WorkflowE2EHttpTest {
                         .withHeader("Content-Type", "application/json")
                         .withBody("{ \"applicationNumber\": \"APP-E2E-123\", \"citizenId\": \"CIT-E2E\", \"serviceCode\": \"SKILL_BENEFIT\", \"status\": \"SUBMITTED\" }")));
 
-        member2MockServer.stubFor(get(urlEqualTo("/api/v1/interop/fetch/all/CIT-E2E"))
+        member2MockServer.stubFor(post(urlEqualTo("/api/v1/interop/fetch/scoped"))
                 .withHeader("Authorization", equalTo("Bearer MAHASETU_SUPER_SECRET_TOKEN_2026"))
                 .willReturn(aResponse()
                         .withHeader("Content-Type", "application/json")

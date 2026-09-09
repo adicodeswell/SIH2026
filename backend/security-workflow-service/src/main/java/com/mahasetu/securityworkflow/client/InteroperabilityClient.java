@@ -1,6 +1,7 @@
 package com.mahasetu.securityworkflow.client;
 
-import com.mahasetu.securityworkflow.dto.CanonicalCitizenData;
+import com.mahasetu.securityworkflow.dto.ScopedInteropRequest;
+import com.mahasetu.securityworkflow.dto.SourceDataResult;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
@@ -17,40 +18,41 @@ public class InteroperabilityClient {
 
     private final RestTemplate restTemplate;
     private final String interoperabilityServiceUrl;
-    private final String token;
+    private final ServiceTokenProvider serviceTokenProvider;
 
     public InteroperabilityClient(
             RestTemplate restTemplate,
             @Value("${mahasetu.interoperability-service.url}") String interoperabilityServiceUrl,
-            @Value("${mahasetu.interoperability-service.token}") String token) {
+            ServiceTokenProvider serviceTokenProvider) {
         this.restTemplate = restTemplate;
         this.interoperabilityServiceUrl = interoperabilityServiceUrl;
-        this.token = token;
+        this.serviceTokenProvider = serviceTokenProvider;
     }
 
     private static final int MAX_ATTEMPTS = 3;
 
-    public List<CanonicalCitizenData> fetchAllData(String citizenId) {
-        String url = interoperabilityServiceUrl + "/api/v1/interop/fetch/all/" + citizenId;
+    public List<SourceDataResult> fetchScopedData(String citizenId, List<String> allowedScopes) {
+        String url = interoperabilityServiceUrl + "/api/v1/interop/fetch/scoped";
         
         HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", "Bearer " + token);
+        // Dynamically fetch OAuth2 token via client_credentials
+        headers.set("Authorization", serviceTokenProvider.getAuthorizationHeader());
         
-        HttpEntity<String> entity = new HttpEntity<>(headers);
+        ScopedInteropRequest request = new ScopedInteropRequest(citizenId, allowedScopes);
+        HttpEntity<ScopedInteropRequest> entity = new HttpEntity<>(request, headers);
 
         int attempts = 0;
         while (attempts < MAX_ATTEMPTS) {
             attempts++;
             try {
-                ResponseEntity<List<CanonicalCitizenData>> response = restTemplate.exchange(
+                ResponseEntity<List<SourceDataResult>> response = restTemplate.exchange(
                         url,
-                        HttpMethod.GET,
+                        HttpMethod.POST,
                         entity,
-                        new ParameterizedTypeReference<List<CanonicalCitizenData>>() {}
+                        new ParameterizedTypeReference<List<SourceDataResult>>() {}
                 );
                 return response.getBody();
             } catch (org.springframework.web.client.HttpClientErrorException e) {
-                // Permanent 4xx client error (e.g. 404, 401): do not retry
                 throw e;
             } catch (org.springframework.web.client.HttpServerErrorException | org.springframework.web.client.ResourceAccessException e) {
                 if (attempts >= MAX_ATTEMPTS) {

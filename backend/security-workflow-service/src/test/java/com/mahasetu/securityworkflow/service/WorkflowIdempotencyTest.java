@@ -66,7 +66,7 @@ public class WorkflowIdempotencyTest {
     void setup() {
         member1MockServer.resetAll();
         member2MockServer.resetAll();
-        when(serviceTokenProvider.getAuthorizationHeader()).thenReturn("Bearer service-token");
+        when(serviceTokenProvider.getAuthorizationHeader()).thenReturn("Bearer " + TOKEN);
     }
 
     private void setupMocksForApp(String appId, String citizenId) {
@@ -93,7 +93,7 @@ public class WorkflowIdempotencyTest {
         request.setRequestingDepartmentId("DEPT-1");
         consentService.grantConsent(citizenId, request);
 
-        member2MockServer.stubFor(get(urlEqualTo("/api/v1/interop/fetch/all/" + citizenId))
+        member2MockServer.stubFor(post(urlEqualTo("/api/v1/interop/fetch/scoped"))
                 .withHeader("Authorization", equalTo("Bearer " + TOKEN))
                 .willReturn(aResponse()
                         .withHeader("Content-Type", "application/json")

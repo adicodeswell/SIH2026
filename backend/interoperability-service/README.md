@@ -9,7 +9,7 @@ This guarantees that the MahaSetu frontend always receives clean, predictable JS
 
 When a request is sent to fetch data for a citizen (e.g., `MH1001`), the following flow executes:
 
-1. **Security & Authentication (Phase 5):** The request passes through the `TokenValidationFilter`. It strictly requires an `Authorization: Bearer MAHASETU_SUPER_SECRET_TOKEN_2026` header to prevent unauthenticated scraping of citizen data.
+1. **Security & Authentication (Phase 5):** The request passes through the `Spring Security OAuth2 Resource Server`. It strictly requires an `Authorization: Bearer <Keycloak-Service-Token>` header to prevent unauthenticated scraping of citizen data.
 2. **Client Request:** The frontend requests data at `/api/v1/interop/fetch/{system}/{citizenId}` (for a single department) or `/api/v1/interop/fetch/all/{citizenId}` (which uses Java's `CompletableFuture` to fetch from all three departments asynchronously in parallel).
 3. **Caching (Phase 4):** The `ConnectorRegistry` checks its in-memory Caffeine Cache (`@Cacheable`). If the citizen's data was fetched within the last 10 minutes, it returns immediately without hitting the external system!
 4. **Dynamic Routing & Circuit Breaking (Phase 4):** The registry identifies the correct system connector. If the external legacy system crashes or times out, our **Resilience4j Circuit Breaker** intercepts the failure and returns a graceful "SERVICE_UNAVAILABLE" fallback model instead of crashing MahaSetu.
@@ -25,7 +25,7 @@ When a request is sent to fetch data for a citizen (e.g., `MH1001`), the followi
 * **`VerificationController.java`**: The public-facing REST API for the frontend, supporting single and parallel async fetching.
 
 ### `security/`
-* **`TokenValidationFilter.java`**: A strict servlet filter blocking requests without the correct Bearer token.
+* **`Spring Security OAuth2 Resource Server.java`**: A strict servlet filter blocking requests without the correct Bearer token.
 
 ### `service/`
 * **`ConnectorRegistry.java`**: Acts as a traffic cop and shield. Powered by Spring Cache and Resilience4j to dynamically route requests, cache data, and break circuits if legacy systems crash.
@@ -69,10 +69,10 @@ This single command spins up BOTH the `mock-systems` (Port 8091) and the `intero
 
 **Fetch Single System:**
 ```bash
-curl -H "Authorization: Bearer MAHASETU_SUPER_SECRET_TOKEN_2026" http://localhost:8082/api/v1/interop/fetch/EMPLOYMENT_SYSTEM/MH1001
+curl -H "Authorization: Bearer <Keycloak-Service-Token>" http://localhost:8082/api/v1/interop/fetch/EMPLOYMENT_SYSTEM/MH1001
 ```
 
 **Fetch All Systems (Parallel Async):**
 ```bash
-curl -H "Authorization: Bearer MAHASETU_SUPER_SECRET_TOKEN_2026" http://localhost:8082/api/v1/interop/fetch/all/MH1001
+curl -H "Authorization: Bearer <Keycloak-Service-Token>" http://localhost:8082/api/v1/interop/fetch/all/MH1001
 ```

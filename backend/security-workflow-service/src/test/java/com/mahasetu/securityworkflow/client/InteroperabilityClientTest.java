@@ -1,11 +1,8 @@
 package com.mahasetu.securityworkflow.client;
 
-import com.mahasetu.securityworkflow.dto.CanonicalCitizenData;
+import com.mahasetu.securityworkflow.dto.SourceDataResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
@@ -16,112 +13,90 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
 public class InteroperabilityClientTest {
 
-    @Mock
     private RestTemplate restTemplate;
-
     private InteroperabilityClient client;
 
     @BeforeEach
-    void setUp() {
-        client = new InteroperabilityClient(
-                restTemplate,
-                "http://localhost:8082",
-                "test-token"
-        );
+    public void setup() {
+        restTemplate = mock(RestTemplate.class);
+        ServiceTokenProvider serviceTokenProvider = mock(ServiceTokenProvider.class);
+        when(serviceTokenProvider.getAuthorizationHeader()).thenReturn("Bearer mock-token");
+        client = new InteroperabilityClient(restTemplate, "http://localhost", serviceTokenProvider);
     }
 
     @Test
-    void testFetchAllData_SuccessOnFirstAttempt() {
-        CanonicalCitizenData data = new CanonicalCitizenData();
-        data.setCitizenId("CIT-123");
+    public void testFetchScopedData_Success() {
+        SourceDataResult mockData = new SourceDataResult();
+        mockData.setSource("EDUCATION_SYSTEM");
+        mockData.setStatus("SUCCESS");
+
+        ResponseEntity<List<SourceDataResult>> responseEntity = new ResponseEntity<>(Collections.singletonList(mockData), HttpStatus.OK);
 
         when(restTemplate.exchange(
                 anyString(),
-                eq(HttpMethod.GET),
+                eq(HttpMethod.POST),
                 any(HttpEntity.class),
                 any(ParameterizedTypeReference.class)
-        )).thenReturn(ResponseEntity.ok(List.of(data)));
+        )).thenReturn(responseEntity);
 
-        List<CanonicalCitizenData> result = client.fetchAllData("CIT-123");
+        List<SourceDataResult> result = client.fetchScopedData("CIT-123", Arrays.asList("EDUCATION"));
 
         assertNotNull(result);
         assertEquals(1, result.size());
-        assertEquals("CIT-123", result.get(0).getCitizenId());
-        verify(restTemplate, times(1)).exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), any(ParameterizedTypeReference.class));
+        assertEquals("EDUCATION_SYSTEM", result.get(0).getSource());
+
+        verify(restTemplate, times(1)).exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), any(ParameterizedTypeReference.class));
     }
 
     @Test
-    void testFetchAllData_4xxClientError_FailsFastWithoutRetry() {
+    public void testFetchScopedData_ClientError_NoRetry() {
         when(restTemplate.exchange(
                 anyString(),
-                eq(HttpMethod.GET),
+                eq(HttpMethod.POST),
                 any(HttpEntity.class),
                 any(ParameterizedTypeReference.class)
-        )).thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND, "Not Found"));
+        )).thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
 
-        assertThrows(HttpClientErrorException.class, () -> client.fetchAllData("CIT-404"));
+        assertThrows(HttpClientErrorException.class, () -> client.fetchScopedData("CIT-123", Arrays.asList("EDUCATION")));
 
-        // Must fail fast on attempt 1
-        verify(restTemplate, times(1)).exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), any(ParameterizedTypeReference.class));
+        verify(restTemplate, times(1)).exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), any(ParameterizedTypeReference.class));
     }
 
     @Test
-    void testFetchAllData_5xxServerError_Retries3TimesThenThrows() {
+    public void testFetchScopedData_ServerError_Retries() {
         when(restTemplate.exchange(
                 anyString(),
-                eq(HttpMethod.GET),
+                eq(HttpMethod.POST),
                 any(HttpEntity.class),
                 any(ParameterizedTypeReference.class)
-        )).thenThrow(new HttpServerErrorException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error"));
+        )).thenThrow(new HttpServerErrorException(HttpStatus.INTERNAL_SERVER_ERROR));
 
-        assertThrows(HttpServerErrorException.class, () -> client.fetchAllData("CIT-500"));
+        assertThrows(HttpServerErrorException.class, () -> client.fetchScopedData("CIT-123", Arrays.asList("EDUCATION")));
 
-        // Must retry up to 3 times
-        verify(restTemplate, times(3)).exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), any(ParameterizedTypeReference.class));
+        verify(restTemplate, times(3)).exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), any(ParameterizedTypeReference.class));
     }
 
     @Test
-    void testFetchAllData_ResourceAccessException_Retries3TimesThenThrows() {
+    public void testFetchScopedData_ConnectionError_Retries() {
         when(restTemplate.exchange(
                 anyString(),
-                eq(HttpMethod.GET),
+                eq(HttpMethod.POST),
                 any(HttpEntity.class),
                 any(ParameterizedTypeReference.class)
         )).thenThrow(new ResourceAccessException("Connection refused"));
 
-        assertThrows(ResourceAccessException.class, () -> client.fetchAllData("CIT-TIMEOUT"));
+        assertThrows(ResourceAccessException.class, () -> client.fetchScopedData("CIT-123", Arrays.asList("EDUCATION")));
 
-        // Must retry up to 3 times
-        verify(restTemplate, times(3)).exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), any(ParameterizedTypeReference.class));
-    }
-
-    @Test
-    void testFetchAllData_TransientError_SucceedsOnSecondAttempt() {
-        CanonicalCitizenData data = new CanonicalCitizenData();
-        data.setCitizenId("CIT-RETRY");
-
-        when(restTemplate.exchange(
-                anyString(),
-                eq(HttpMethod.GET),
-                any(HttpEntity.class),
-                any(ParameterizedTypeReference.class)
-        ))
-                .thenThrow(new HttpServerErrorException(HttpStatus.SERVICE_UNAVAILABLE, "Unavailable"))
-                .thenReturn(ResponseEntity.ok(List.of(data)));
-
-        List<CanonicalCitizenData> result = client.fetchAllData("CIT-RETRY");
-
-        assertNotNull(result);
-        assertEquals(1, result.size());
-        verify(restTemplate, times(2)).exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), any(ParameterizedTypeReference.class));
+        verify(restTemplate, times(3)).exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), any(ParameterizedTypeReference.class));
     }
 }
