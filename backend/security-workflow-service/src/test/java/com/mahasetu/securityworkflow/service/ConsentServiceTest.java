@@ -121,7 +121,7 @@ class ConsentServiceTest {
         Consent c = new Consent();
         c.setExpiresAt(LocalDateTime.now().plusDays(1));
 
-        when(consentRepository.findByCitizenIdAndDataScopeAndPurposeAndStatus(
+        when(consentRepository.findFirstByCitizenIdAndDataScopeAndPurposeAndStatusOrderByGrantedAtDesc(
                 "cit-1", "scope", "purpose", "GRANTED")).thenReturn(Optional.of(c));
 
         assertTrue(consentService.checkConsent("cit-1", "scope", "purpose"));
@@ -132,7 +132,7 @@ class ConsentServiceTest {
         Consent c = new Consent();
         c.setExpiresAt(LocalDateTime.now().minusDays(1));
 
-        when(consentRepository.findByCitizenIdAndDataScopeAndPurposeAndStatus(
+        when(consentRepository.findFirstByCitizenIdAndDataScopeAndPurposeAndStatusOrderByGrantedAtDesc(
                 "cit-1", "scope", "purpose", "GRANTED")).thenReturn(Optional.of(c));
 
         assertFalse(consentService.checkConsent("cit-1", "scope", "purpose"));
@@ -140,7 +140,7 @@ class ConsentServiceTest {
 
     @Test
     void testCheckConsent_DefaultDeny_NotFound() {
-        when(consentRepository.findByCitizenIdAndDataScopeAndPurposeAndStatus(
+        when(consentRepository.findFirstByCitizenIdAndDataScopeAndPurposeAndStatusOrderByGrantedAtDesc(
                 "unknown", "scope", "purpose", "GRANTED")).thenReturn(Optional.empty());
 
         assertFalse(consentService.checkConsent("unknown", "scope", "purpose"));

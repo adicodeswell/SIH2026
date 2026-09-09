@@ -1,6 +1,6 @@
 package com.mahasetu.securityworkflow.service.worker;
 
-import com.mahasetu.securityworkflow.dto.ConsentPolicy;
+import com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy;
 import com.mahasetu.securityworkflow.exception.UnsupportedServiceCodeException;
 import com.mahasetu.securityworkflow.service.ConsentPolicyService;
 import com.mahasetu.securityworkflow.service.ConsentService;
@@ -33,8 +33,8 @@ public class VerifyConsentWorker implements JavaDelegate {
         log.info("[CONSENT_EVENT] VerifyConsentWorker: checking consent for applicationId={}, citizenId={}, serviceCode={}",
                 applicationId, citizenId, serviceCode);
 
-        // Dynamically resolve consent policy from configuration
-        ConsentPolicy policy;
+        // Dynamically resolve strongly typed consent policy from configuration
+        ResolvedConsentPolicy policy;
         try {
             policy = consentPolicyService.getPolicy(serviceCode);
         } catch (UnsupportedServiceCodeException e) {
@@ -43,11 +43,13 @@ public class VerifyConsentWorker implements JavaDelegate {
             throw new BpmnError("UNSUPPORTED_SERVICE_CODE", "No consent policy for service code: " + serviceCode);
         }
 
-        String dataScope = policy.getDataScope();
+        // For MVP Phase 1 compatibility, we use the raw string to check the consent database.
+        // Phase 2 will introduce proper scope set validation.
+        String dataScope = policy.getRawDataScope();
         String purpose = policy.getPurpose();
 
-        log.info("[CONSENT_EVENT] VerifyConsentWorker: resolved policy for serviceCode={}: dataScope={}, purpose={}",
-                serviceCode, dataScope, purpose);
+        log.info("[CONSENT_EVENT] VerifyConsentWorker: resolved policy for serviceCode={}: requiredScopes={}, purpose={}",
+                serviceCode, policy.getRequiredScopes(), purpose);
 
         boolean consentValid = consentService.checkConsent(citizenId, dataScope, purpose);
 

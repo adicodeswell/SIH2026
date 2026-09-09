@@ -1,4 +1,5 @@
 package com.mahasetu.securityworkflow.service;
+import com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy;
 
 import com.mahasetu.securityworkflow.config.ConsentPolicyProperties;
 import com.mahasetu.securityworkflow.dto.ConsentPolicy;
@@ -49,6 +50,7 @@ public class ConsentHardeningTest {
         props.setPolicies(Map.of("SRV-EDU", eduPolicy));
 
         consentPolicyService = new ConsentPolicyService(props);
+        consentPolicyService.validateAndInitializePolicies();
     }
 
     @Test
@@ -165,7 +167,7 @@ public class ConsentHardeningTest {
         consent.setStatus("GRANTED");
         consent.setExpiresAt(LocalDateTime.now().minusDays(1)); // Expired yesterday
 
-        when(consentRepository.findByCitizenIdAndDataScopeAndPurposeAndStatus(CITIZEN_1, "education", "verification", "GRANTED"))
+        when(consentRepository.findFirstByCitizenIdAndDataScopeAndPurposeAndStatusOrderByGrantedAtDesc(CITIZEN_1, "education", "verification", "GRANTED"))
                 .thenReturn(Optional.of(consent));
 
         boolean valid = consentService.checkConsent(CITIZEN_1, "education", "verification");
@@ -174,7 +176,7 @@ public class ConsentHardeningTest {
 
     @Test
     void testCheckConsent_MissingOrWrongParameters_ReturnsFalse() {
-        when(consentRepository.findByCitizenIdAndDataScopeAndPurposeAndStatus(anyString(), anyString(), anyString(), eq("GRANTED")))
+        when(consentRepository.findFirstByCitizenIdAndDataScopeAndPurposeAndStatusOrderByGrantedAtDesc(anyString(), anyString(), anyString(), eq("GRANTED")))
                 .thenReturn(Optional.empty());
 
         assertFalse(consentService.checkConsent(CITIZEN_1, "health", "verification"));
@@ -190,9 +192,9 @@ public class ConsentHardeningTest {
 
     @Test
     void testConsentPolicy_KnownServiceCode_ReturnsPolicy() {
-        ConsentPolicy policy = consentPolicyService.getPolicy("SRV-EDU");
+        ResolvedConsentPolicy policy = consentPolicyService.getPolicy("SRV-EDU");
         assertNotNull(policy);
-        assertEquals("education", policy.getDataScope());
+        assertEquals("education", policy.getRawDataScope());
         assertEquals("verification", policy.getPurpose());
     }
 }

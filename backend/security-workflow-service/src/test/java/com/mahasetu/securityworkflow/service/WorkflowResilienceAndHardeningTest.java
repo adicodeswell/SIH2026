@@ -130,7 +130,7 @@ class WorkflowResilienceAndHardeningTest {
         Consent c = new Consent();
         c.setExpiresAt(LocalDateTime.now().minusHours(2));
 
-        when(consentRepository.findByCitizenIdAndDataScopeAndPurposeAndStatus(
+        when(consentRepository.findFirstByCitizenIdAndDataScopeAndPurposeAndStatusOrderByGrantedAtDesc(
                 "CIT-EXPIRED", "education", "verification", "GRANTED")).thenReturn(Optional.of(c));
 
         assertFalse(consentService.checkConsent("CIT-EXPIRED", "education", "verification"));
@@ -138,7 +138,7 @@ class WorkflowResilienceAndHardeningTest {
 
     @Test
     void testConsent_RevokedConsent_DefaultDeny() {
-        when(consentRepository.findByCitizenIdAndDataScopeAndPurposeAndStatus(
+        when(consentRepository.findFirstByCitizenIdAndDataScopeAndPurposeAndStatusOrderByGrantedAtDesc(
                 "CIT-REVOKED", "education", "verification", "GRANTED")).thenReturn(Optional.empty());
 
         assertFalse(consentService.checkConsent("CIT-REVOKED", "education", "verification"));
