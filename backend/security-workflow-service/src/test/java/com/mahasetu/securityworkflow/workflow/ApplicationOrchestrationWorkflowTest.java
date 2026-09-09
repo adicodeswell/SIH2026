@@ -105,6 +105,8 @@ public class ApplicationOrchestrationWorkflowTest {
 
         // Setup Consent matching SRV-EDU policy (dataScope: education, purpose: verification)
         ConsentRequest request = new ConsentRequest();
+        request.setApplicationId(appId);
+        request.setServiceCode("SRV-EDU");
         request.setDataScope("education");
         request.setPurpose("verification");
         request.setRequestingDepartmentId("DEPT-1");
@@ -373,6 +375,8 @@ public class ApplicationOrchestrationWorkflowTest {
 
         // Grant consent
         ConsentRequest request = new ConsentRequest();
+        request.setApplicationId(appId);
+        request.setServiceCode("SRV-EDU");
         request.setDataScope("education");
         request.setPurpose("verification");
         request.setRequestingDepartmentId("DEPT-1");

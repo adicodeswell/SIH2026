@@ -43,15 +43,8 @@ public class VerifyConsentWorker implements JavaDelegate {
             throw new BpmnError("UNSUPPORTED_SERVICE_CODE", "No consent policy for service code: " + serviceCode);
         }
 
-        // For MVP Phase 1 compatibility, we use the raw string to check the consent database.
-        // Phase 2 will introduce proper scope set validation.
-        String dataScope = policy.getRawDataScope();
-        String purpose = policy.getPurpose();
-
-        log.info("[CONSENT_EVENT] VerifyConsentWorker: resolved policy for serviceCode={}: requiredScopes={}, purpose={}",
-                serviceCode, policy.getRequiredScopes(), purpose);
-
-        boolean consentValid = consentService.checkConsent(citizenId, dataScope, purpose);
+        // Phase 2 secure, application-aware validation checking coverage, expiry, purpose and department
+        boolean consentValid = consentService.checkConsentContext(citizenId, applicationId, serviceCode, policy);
 
         execution.setVariable("consentValid", consentValid);
 

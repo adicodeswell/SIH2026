@@ -44,14 +44,18 @@ public class ConsentPolicyService {
             String serviceCode = entry.getKey();
             ConsentPolicy config = entry.getValue();
 
+            if (config.getRequestingDepartmentId() == null || config.getRequestingDepartmentId().trim().isEmpty()) {
+                throw new IllegalStateException("Policy for " + serviceCode + " is missing requestingDepartmentId");
+            }
+
             Set<DataScope> scopes = parseAndValidateScopes(config.getDataScope());
 
             resolvedPolicies.put(serviceCode, new ResolvedConsentPolicy(
-                    serviceCode, scopes, config.getPurpose(), config.getDataScope()
+                    serviceCode, scopes, config.getPurpose(), config.getDataScope(), config.getRequestingDepartmentId()
             ));
 
-            log.info("Loaded and validated policy for {}: requiredScopes={}, purpose={}", 
-                    serviceCode, scopes, config.getPurpose());
+            log.info("Loaded and validated policy for {}: requiredScopes={}, purpose={}, dept={}", 
+                    serviceCode, scopes, config.getPurpose(), config.getRequestingDepartmentId());
         }
     }
 
@@ -84,13 +88,6 @@ public class ConsentPolicyService {
         return scopes;
     }
 
-    /**
-     * Returns the strongly typed consent policy for the given service code.
-     *
-     * @param serviceCode the service code from the application
-     * @return the ResolvedConsentPolicy containing required DataScopes and purpose
-     * @throws UnsupportedServiceCodeException if no policy is configured (default-deny)
-     */
     public ResolvedConsentPolicy getPolicy(String serviceCode) {
         if (serviceCode == null || serviceCode.trim().isEmpty()) {
             log.warn("Consent policy lookup called with null/empty serviceCode");

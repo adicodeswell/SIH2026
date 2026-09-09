@@ -21,19 +21,12 @@ public class ConsentController {
         this.consentService = consentService;
     }
 
-    @GetMapping("/internal/v1/consents/check")
-    @PreAuthorize("hasRole('SERVICE')")
-    public ResponseEntity<Void> checkConsent(
-            @RequestParam String citizenId,
-            @RequestParam String dataScope,
-            @RequestParam String purpose) {
-        
-        boolean isValid = consentService.checkConsent(citizenId, dataScope, purpose);
-        if (isValid) {
-            return ResponseEntity.ok().build();
-        } else {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+    private String extractCitizenId(Authentication authentication) {
+        if (authentication instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken jwtAuth) {
+            String citizenId = jwtAuth.getToken().getClaimAsString("preferred_username");
+            if (citizenId != null) return citizenId.toUpperCase();
         }
+        return authentication.getName().toUpperCase();
     }
 
     @PostMapping("/api/v1/consents")
@@ -42,13 +35,7 @@ public class ConsentController {
             @RequestBody ConsentRequest request,
             Authentication authentication) {
         
-        String citizenId;
-        if (authentication instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken jwtAuth) {
-            citizenId = jwtAuth.getToken().getClaimAsString("preferred_username");
-            if (citizenId != null) citizenId = citizenId.toUpperCase();
-        } else {
-            citizenId = authentication.getName().toUpperCase();
-        }
+        String citizenId = extractCitizenId(authentication);
 
         Consent consent = consentService.grantConsent(citizenId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(consent);
@@ -60,7 +47,7 @@ public class ConsentController {
             @PathVariable UUID id,
             Authentication authentication) {
         
-        String citizenId = authentication.getName();
+        String citizenId = extractCitizenId(authentication);
         consentService.revokeConsent(citizenId, id);
         return ResponseEntity.ok().build();
     }
@@ -68,7 +55,7 @@ public class ConsentController {
     @GetMapping("/api/v1/consents")
     @PreAuthorize("hasRole('CITIZEN')")
     public ResponseEntity<List<Consent>> getConsents(Authentication authentication) {
-        String citizenId = authentication.getName();
+        String citizenId = extractCitizenId(authentication);
         return ResponseEntity.ok(consentService.getConsents(citizenId));
     }
 }

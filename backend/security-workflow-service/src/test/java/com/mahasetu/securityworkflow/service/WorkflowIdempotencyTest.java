@@ -86,6 +86,8 @@ public class WorkflowIdempotencyTest {
                 .willReturn(aResponse().withStatus(200)));
 
         ConsentRequest request = new ConsentRequest();
+        request.setApplicationId(appId);
+        request.setServiceCode("SRV-EDU");
         request.setDataScope("education");
         request.setPurpose("verification");
         request.setRequestingDepartmentId("DEPT-1");

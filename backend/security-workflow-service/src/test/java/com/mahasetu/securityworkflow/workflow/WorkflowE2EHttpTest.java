@@ -113,6 +113,8 @@ public class WorkflowE2EHttpTest {
 
         // 3. Setup Consent
         ConsentRequest consentReq = new ConsentRequest();
+        consentReq.setApplicationId("APP-E2E-123");
+        consentReq.setServiceCode("SKILL_BENEFIT");
         consentReq.setDataScope("education,employment,skills");
         consentReq.setPurpose("verification");
         consentReq.setRequestingDepartmentId("DEPT-1");

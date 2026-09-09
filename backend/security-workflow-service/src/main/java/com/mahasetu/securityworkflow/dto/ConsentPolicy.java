@@ -1,35 +1,24 @@
 package com.mahasetu.securityworkflow.dto;
 
-/**
- * Represents the consent policy for a given service code.
- * Contains the required data scope and purpose for consent verification.
- */
 public class ConsentPolicy {
-
     private String dataScope;
     private String purpose;
+    private String requestingDepartmentId;
 
-    public ConsentPolicy() {
-    }
+    public ConsentPolicy() {}
 
-    public ConsentPolicy(String dataScope, String purpose) {
+    public ConsentPolicy(String dataScope, String purpose, String requestingDepartmentId) {
         this.dataScope = dataScope;
         this.purpose = purpose;
+        this.requestingDepartmentId = requestingDepartmentId;
     }
 
-    public String getDataScope() {
-        return dataScope;
-    }
+    public String getDataScope() { return dataScope; }
+    public void setDataScope(String dataScope) { this.dataScope = dataScope; }
 
-    public void setDataScope(String dataScope) {
-        this.dataScope = dataScope;
-    }
+    public String getPurpose() { return purpose; }
+    public void setPurpose(String purpose) { this.purpose = purpose; }
 
-    public String getPurpose() {
-        return purpose;
-    }
-
-    public void setPurpose(String purpose) {
-        this.purpose = purpose;
-    }
+    public String getRequestingDepartmentId() { return requestingDepartmentId; }
+    public void setRequestingDepartmentId(String requestingDepartmentId) { this.requestingDepartmentId = requestingDepartmentId; }
 }
