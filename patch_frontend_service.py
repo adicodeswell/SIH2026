@@ -1,4 +1,7 @@
-import { applicationApi } from '@/lib/api';
+with open('./frontend/src/services/applicationService.ts', 'r') as f:
+    content = f.read()
+
+new_content = """import { applicationApi } from '@/lib/api';
 import type { ApplicationResponse, TimelineEventResponse, CitizenApplicationSummaryResponse, CitizenApplicationActivityResponse } from '@/types/service';
 
 export const applicationServiceApi = {
@@ -22,3 +25,7 @@ export const applicationServiceApi = {
     return response.data;
   },
 };
+"""
+
+with open('./frontend/src/services/applicationService.ts', 'w') as f:
+    f.write(new_content)

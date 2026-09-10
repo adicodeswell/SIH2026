@@ -47,11 +47,13 @@ export const ServiceDetailPage: React.FC = () => {
   // Application creation mutation
   const applicationMutation = useMutation({
     mutationFn: async (payload: { citizenId: string; serviceCode: string }) => {
+      console.log('MUTATION STARTED', payload);
       // 1. Create application in DRAFT state
       const application = await serviceCatalogApi.createApplication({
         citizenId: payload.citizenId,
         serviceCode: payload.serviceCode,
       });
+      console.log('APPLICATION CREATED', application);
 
       // 2. Grant cryptographic consent bound to the application
       await serviceCatalogApi.grantConsent({
@@ -67,15 +69,20 @@ export const ServiceDetailPage: React.FC = () => {
           payload.serviceCode === 'SCHOLARSHIP' ? 'scholarship_verification' : 'verification',
         requestingDepartmentId: service?.departmentCode || 'DEPT-SKILLS',
       });
+      console.log('CONSENT GRANTED');
 
       // 3. Submit/activate application to start workflow
-      return await serviceCatalogApi.submitApplication(application.applicationNumber);
+      const result = await serviceCatalogApi.submitApplication(application.applicationNumber);
+      console.log('APPLICATION SUBMITTED', result);
+      return result;
     },
     onSuccess: (data) => {
+      console.log('Mutation SUCCESS!', data);
       notify.success('Application Submitted Successfully', `Reference: ${data.applicationNumber}`);
       setCreatedApplication(data);
     },
     onError: (err: any) => {
+      console.log('Mutation ERROR!', err);
       // Handled through normalizeApiError in lib/api
       if (err.status === 409) {
         notify.error(

@@ -95,7 +95,7 @@ public class ConsentService {
 
         Consent saved = consentRepository.save(consent);
         auditService.recordConsentGranted(citizenId, saved.getId(), saved.getRequestingDepartmentId(),
-                saved.getDataScope(), saved.getPurpose());
+                saved.getDataScope(), saved.getPurpose(), saved.getApplicationId());
         return saved;
     }
 
@@ -112,7 +112,7 @@ public class ConsentService {
         consentRepository.save(consent);
 
         if (wasGranted) {
-            auditService.recordConsentRevoked(citizenId, consentId);
+            auditService.recordConsentRevoked(citizenId, consentId, consent.getApplicationId());
         }
     }
 

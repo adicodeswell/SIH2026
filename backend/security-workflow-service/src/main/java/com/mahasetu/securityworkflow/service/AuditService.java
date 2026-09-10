@@ -80,7 +80,7 @@ public class AuditService {
     }
 
     @Transactional
-    public AuditLog recordConsentGranted(String citizenId, UUID consentId, String departmentId, String dataScope, String purpose) {
+    public AuditLog recordConsentGranted(String citizenId, UUID consentId, String departmentId, String dataScope, String purpose, String applicationId) {
         log.info("Recording consent granted audit: citizenId={}, consentId={}, departmentId={}",
                 citizenId, consentId, departmentId);
         Map<String, Object> metadataMap = new LinkedHashMap<>();
@@ -95,7 +95,7 @@ public class AuditService {
         }
 
         AuditLog auditLog = new AuditLog(
-                null,
+                applicationId,
                 citizenId,
                 "CONSENT_GRANTED",
                 "CONSENT",
@@ -107,10 +107,10 @@ public class AuditService {
     }
 
     @Transactional
-    public AuditLog recordConsentRevoked(String citizenId, UUID consentId) {
+    public AuditLog recordConsentRevoked(String citizenId, UUID consentId, String applicationId) {
         log.info("Recording consent revoked audit: citizenId={}, consentId={}", citizenId, consentId);
         AuditLog auditLog = new AuditLog(
-                null,
+                applicationId,
                 citizenId,
                 "CONSENT_REVOKED",
                 "CONSENT",

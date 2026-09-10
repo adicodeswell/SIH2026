@@ -1,23 +1,33 @@
-import re
-
 with open('./frontend/src/types/service.ts', 'r') as f:
     content = f.read()
 
-old_req = """export interface ConsentRequest {
-  dataScope: string;
-  purpose: string;
-  requestingDepartmentId: string;
-}"""
-
-new_req = """export interface ConsentRequest {
-  applicationId: string;
+new_types = """
+export interface CitizenApplicationSummaryResponse {
+  applicationNumber: string;
   serviceCode: string;
-  dataScope: string;
-  purpose: string;
-  requestingDepartmentId: string;
-}"""
+  serviceName: string;
+  departmentCode: string;
+  departmentName: string;
+  status: string;
+  createdAt: string;
+  submittedAt: string | null;
+  updatedAt: string | null;
+}
 
-content = content.replace(old_req, new_req)
+export interface CitizenApplicationActivityResponse {
+  id: string;
+  type: string;
+  category: string;
+  title: string;
+  description: string;
+  status: string | null;
+  occurredAt: string;
+  actorType: string;
+}
+"""
+
+if "CitizenApplicationSummaryResponse" not in content:
+    content = content + new_types
 
 with open('./frontend/src/types/service.ts', 'w') as f:
     f.write(content)

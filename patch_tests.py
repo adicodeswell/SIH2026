@@ -1,14 +1,7 @@
-import re
-
-with open('./backend/application-service/src/test/java/com/mahasetu/application/service/ApplicationServiceTest.java', 'r') as f:
+with open('./frontend/src/__tests__/services.test.tsx', 'r') as f:
     content = f.read()
 
-# Replace testCreateApplication_Success expectations
-old_test = """        verify(workflowClient, times(1)).startWorkflow("MH-2026-000001", "application-orchestration");
-        assertEquals(ApplicationStatus.SUBMITTED, response.getStatus());"""
-new_test = """        verify(workflowClient, never()).startWorkflow(anyString(), anyString());
-        assertEquals(ApplicationStatus.DRAFT, response.getStatus());"""
-content = content.replace(old_test, new_test)
+content = content.replace("submittedAt: new Date().toISOString(),", "submittedAt: new Date().toISOString(),\n        serviceName: 'Mock Service',\n        departmentCode: 'DEPT-MOCK',\n        createdAt: new Date().toISOString(),\n        updatedAt: null,")
 
-with open('./backend/application-service/src/test/java/com/mahasetu/application/service/ApplicationServiceTest.java', 'w') as f:
+with open('./frontend/src/__tests__/services.test.tsx', 'w') as f:
     f.write(content)

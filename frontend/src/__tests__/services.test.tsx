@@ -15,6 +15,7 @@ vi.mock('../services/serviceCatalog', () => ({
     getServiceById: vi.fn(),
     createApplication: vi.fn(),
     grantConsent: vi.fn(),
+    submitApplication: vi.fn(),
   },
 }));
 
@@ -250,13 +251,17 @@ describe('Citizen Service Discovery & Application Creation (Phase 2)', () => {
     it('submits application successfully with explicit DPDP consent and displays reference', async () => {
       vi.mocked(serviceCatalogApi.getServiceById).mockResolvedValue(mockServices[0]);
       vi.mocked(serviceCatalogApi.grantConsent).mockResolvedValue({
-        id: 'consent-123',
+        status: 'SUCCESS',
+        referenceId: 'CONSENT-123',
+        consentId: 'C-123',
+        expiresAt: '2026-01-01',
+      });
+      vi.mocked(serviceCatalogApi.submitApplication).mockResolvedValue({
+        applicationNumber: 'MH-2026-SKILL-99',
+        status: 'SUBMITTED',
         citizenId: 'MH1001',
-        dataScope: 'education,employment,skills',
-        purpose: 'verification',
-        requestingDepartmentId: 'DEPT-SKILLS',
-        status: 'GRANTED',
-        grantedAt: new Date().toISOString(),
+        serviceCode: 'SKILL_BENEFIT',
+        submittedAt: new Date().toISOString(),
       });
       vi.mocked(serviceCatalogApi.createApplication).mockResolvedValue({
         applicationNumber: 'MH-2026-SKILL-99',
@@ -264,6 +269,10 @@ describe('Citizen Service Discovery & Application Creation (Phase 2)', () => {
         citizenId: 'MH1001',
         serviceCode: 'SKILL_BENEFIT',
         submittedAt: new Date().toISOString(),
+        serviceName: 'Mock Service',
+        departmentCode: 'DEPT-MOCK',
+        createdAt: new Date().toISOString(),
+        updatedAt: null,
       });
 
       render(
@@ -294,9 +303,11 @@ describe('Citizen Service Discovery & Application Creation (Phase 2)', () => {
 
       await waitFor(() => {
         expect(serviceCatalogApi.grantConsent).toHaveBeenCalledWith({
+          applicationId: 'MH-2026-SKILL-99',
           dataScope: 'education,employment,skills',
           purpose: 'verification',
           requestingDepartmentId: 'DEPT-SKILLS',
+          serviceCode: 'SKILL_BENEFIT',
         });
         expect(serviceCatalogApi.createApplication).toHaveBeenCalledWith({
           citizenId: 'MH1001',
@@ -305,11 +316,9 @@ describe('Citizen Service Discovery & Application Creation (Phase 2)', () => {
       });
 
       // Expect success confirmation and reference
-      await waitFor(() => {
-        expect(screen.getByText('Application Submitted Successfully')).toBeInTheDocument();
-        expect(screen.getByText('MH-2026-SKILL-99')).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: /View My Applications/i })).toBeInTheDocument();
-      });
+      await screen.findByText(/Application Submitted Successfully/i, {}, { timeout: 3000 });
+      expect(screen.getByText('MH-2026-SKILL-99')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /View My Applications/i })).toBeInTheDocument();
     });
 
     it('handles 409 conflict gracefully during application submission', async () => {

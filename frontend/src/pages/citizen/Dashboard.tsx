@@ -1,4 +1,8 @@
 import { useState, useEffect } from 'react';
+import { applicationServiceApi } from '@/services/applicationService';
+import { useQuery } from '@tanstack/react-query';
+import { FileText } from 'lucide-react';
+
 import { useAuth } from '@/context/AuthContext';
 import { applicationApi } from '@/lib/api';
 import { Link } from 'react-router-dom';
@@ -18,6 +22,12 @@ import {
 export default function CitizenDashboard() {
   const { user } = useAuth();
   const username = user?.username || 'CITIZEN';
+
+
+  const { data: myApps, isLoading: loadingApps } = useQuery({
+    queryKey: ['citizen-applications'],
+    queryFn: () => applicationServiceApi.getMyApplications(),
+  });
 
   const [schemes, setSchemes] = useState<any[]>([]);
   const [loadingSchemes, setLoadingSchemes] = useState(true);
@@ -55,6 +65,32 @@ export default function CitizenDashboard() {
             <LayoutGrid className="w-4 h-4" /> Browse All Services
           </Button>
         </Link>
+      </div>
+
+
+      {/* My Applications Section */}
+      <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
+        <div className="flex flex-col sm:flex-row items-center justify-between p-6">
+          <div className="flex items-start gap-4">
+            <div className="bg-blue-50 p-3 rounded-full hidden sm:block">
+              <FileText className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">My Applications</h2>
+              <p className="text-sm text-slate-500 mt-1">Track the status of all your submitted schemes and view activity history.</p>
+              {!loadingApps && myApps && (
+                <Badge variant="secondary" className="mt-2 bg-blue-50 text-blue-800 hover:bg-blue-100">
+                  {myApps.length} Application{myApps.length !== 1 ? 's' : ''}
+                </Badge>
+              )}
+            </div>
+          </div>
+          <Link to="/citizen/applications" className="mt-4 sm:mt-0 w-full sm:w-auto">
+            <Button variant="outline" className="w-full sm:w-auto gap-2">
+              View My Applications <ArrowRight className="w-4 h-4" />
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Featured Schemes Section */}

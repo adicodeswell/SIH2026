@@ -31,6 +31,10 @@ export interface ApplicationResponse {
   status: ApplicationStatus;
   citizenId: string;
   serviceCode: string;
+  serviceName: string;
+  departmentCode: string;
+  createdAt: string;
+  updatedAt: string | null;
   submittedAt: string;
   verificationData?: unknown;
 }
@@ -58,4 +62,27 @@ export interface TimelineEventResponse {
   eventType: string;
   description: string;
   occurredAt: string;
+}
+
+export interface CitizenApplicationSummaryResponse {
+  applicationNumber: string;
+  serviceCode: string;
+  serviceName: string;
+  departmentCode: string;
+  departmentName: string;
+  status: string;
+  createdAt: string;
+  submittedAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface CitizenApplicationActivityResponse {
+  id: string;
+  type: string;
+  category: string;
+  title: string;
+  description: string;
+  status: string | null;
+  occurredAt: string;
+  actorType: string;
 }

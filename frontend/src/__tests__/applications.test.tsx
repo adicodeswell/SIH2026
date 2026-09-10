@@ -1,4 +1,5 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -9,7 +10,7 @@ import { applicationServiceApi } from '../services/applicationService';
 vi.mock('../services/applicationService', () => ({
   applicationServiceApi: {
     getApplicationById: vi.fn(),
-    getApplicationTimeline: vi.fn(),
+    getApplicationActivity: vi.fn(),
   },
 }));
 
@@ -18,6 +19,7 @@ const mockApplication = {
   status: 'SUBMITTED',
   citizenId: 'MH1001',
   serviceCode: 'TEST_SERVICE',
+  createdAt: '2024-03-01T09:00:00Z',
   submittedAt: '2024-03-01T10:00:00Z',
 };
 
@@ -60,13 +62,13 @@ describe('Citizen Applications', () => {
 
   it('renders tracker page and navigates on search', async () => {
     renderTracker();
-    expect(screen.getByText(/Track Application/i)).toBeInTheDocument();
+    expect(screen.getByText(/Track by Reference Number/i)).toBeInTheDocument();
     
-    const input = screen.getByPlaceholderText(/Enter Reference Number/i);
-    fireEvent.change(input, { target: { value: 'MH-2024-1234' } });
+    const input = screen.getByPlaceholderText(/e.g., MH-2024-1234/i);
+    await userEvent.type(input, 'MH-2024-1234');
     
     const button = screen.getByRole('button', { name: /Track/i });
-    fireEvent.click(button);
+    await userEvent.click(button);
     
     await waitFor(() => {
       expect(screen.getByText('Details Page')).toBeInTheDocument();
@@ -75,16 +77,13 @@ describe('Citizen Applications', () => {
 
   it('renders application details successfully', async () => {
     vi.mocked(applicationServiceApi.getApplicationById).mockResolvedValue(mockApplication as any);
-    vi.mocked(applicationServiceApi.getApplicationTimeline).mockResolvedValue(mockTimeline);
+    vi.mocked(applicationServiceApi.getApplicationActivity).mockResolvedValue(mockTimeline as any);
     
     renderDetails();
     
-    await waitFor(() => {
-      expect(screen.getByText('Application Details')).toBeInTheDocument();
-      expect(screen.getByText('MH-2024-TEST')).toBeInTheDocument();
-      expect(screen.getByText('TEST_SERVICE')).toBeInTheDocument();
-      expect(screen.getByText('Application submitted')).toBeInTheDocument();
-    });
+    await screen.findByText(/MH-2024-TEST/i);
+    expect(screen.getAllByText(/TEST_SERVICE/i)[0]).toBeInTheDocument();
+    expect(screen.getByText(/Application submitted/i)).toBeInTheDocument();
   });
 
   it('handles application not found error', async () => {
@@ -93,7 +92,7 @@ describe('Citizen Applications', () => {
     renderDetails('INVALID');
     
     await waitFor(() => {
-      expect(screen.getByText(/Could not find application with reference number/i)).toBeInTheDocument();
+      expect(screen.getByText(/We could not find the requested application/i)).toBeInTheDocument();
     });
   });
 });

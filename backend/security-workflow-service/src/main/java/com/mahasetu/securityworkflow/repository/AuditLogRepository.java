@@ -11,6 +11,7 @@ import java.util.UUID;
 public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
 
     List<AuditLog> findByApplicationId(String applicationId);
+    List<AuditLog> findByApplicationIdOrderByOccurredAtAsc(String applicationId);
 
     List<AuditLog> findByActorId(String actorId);
 }
