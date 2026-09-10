@@ -44,6 +44,21 @@ public class OfficerReviewController {
         return ResponseEntity.ok(officerTaskService.getOfficerTaskById(taskId));
     }
 
+
+    private String extractOfficerDepartment(Authentication authentication) {
+        if (!(authentication instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken jwtAuth)) {
+            throw new org.springframework.security.access.AccessDeniedException("Officer department not found");
+        }
+
+        String department = jwtAuth.getToken().getClaimAsString("department");
+
+        if (department == null || department.trim().isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("Officer department not found");
+        }
+
+        return department.trim().toUpperCase(java.util.Locale.ROOT);
+    }
+
     private String extractUserId(Authentication authentication) {
         if (authentication instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken jwtAuth) {
             String username = jwtAuth.getToken().getClaimAsString("preferred_username");
@@ -60,7 +75,8 @@ public class OfficerReviewController {
             @PathVariable String taskId,
             Authentication authentication) {
         String officerId = extractUserId(authentication);
-        return ResponseEntity.ok(officerTaskService.claimTask(taskId, officerId));
+        String officerDepartment = extractOfficerDepartment(authentication);
+        return ResponseEntity.ok(officerTaskService.claimTask(taskId, officerId, officerDepartment));
     }
 
     /**
@@ -71,7 +87,8 @@ public class OfficerReviewController {
             @PathVariable String taskId,
             Authentication authentication) {
         String officerId = extractUserId(authentication);
-        return ResponseEntity.ok(officerTaskService.unclaimTask(taskId, officerId));
+        String officerDepartment = extractOfficerDepartment(authentication);
+        return ResponseEntity.ok(officerTaskService.unclaimTask(taskId, officerId, officerDepartment));
     }
 
     /**
@@ -84,9 +101,11 @@ public class OfficerReviewController {
             @Valid @RequestBody OfficerDecisionRequest request,
             Authentication authentication) {
         String officerId = extractUserId(authentication);
+        String officerDepartment = extractOfficerDepartment(authentication);
         OfficerDecisionResponse response = officerTaskService.completeOfficerDecision(
                 taskId,
                 officerId,
+                officerDepartment,
                 request.getDecision(),
                 request.getReason()
         );

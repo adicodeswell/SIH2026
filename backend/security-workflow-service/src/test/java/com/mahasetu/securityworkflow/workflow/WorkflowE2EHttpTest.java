@@ -90,6 +90,7 @@ public class WorkflowE2EHttpTest {
         Jwt officerJwt = Jwt.withTokenValue("officer-token")
                 .header("alg", "none")
                 .claim("sub", "officer_123")
+                .claim("department", "DEPT-SKILLS")
                 .claim("realm_access", Map.of("roles", List.of("OFFICER")))
                 .build();
 

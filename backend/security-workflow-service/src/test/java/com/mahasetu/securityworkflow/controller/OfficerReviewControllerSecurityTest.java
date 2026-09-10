@@ -4,6 +4,7 @@ import com.mahasetu.securityworkflow.dto.OfficerDecisionResponse;
 import com.mahasetu.securityworkflow.dto.OfficerReviewTaskResponse;
 import com.mahasetu.securityworkflow.service.OfficerTaskService;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -34,6 +35,8 @@ public class OfficerReviewControllerSecurityTest {
     private MockMvc mockMvc;
 
     @MockBean
+    
+
     private OfficerTaskService officerTaskService;
 
     @Test
@@ -98,13 +101,13 @@ public class OfficerReviewControllerSecurityTest {
         OfficerDecisionResponse response = new OfficerDecisionResponse(
                 "task-123", "APP-1", "APPROVE", "officer_42", null, LocalDateTime.now(), "COMPLETED"
         );
-        when(officerTaskService.completeOfficerDecision(eq("task-123"), anyString(), eq("APPROVE"), any()))
+        when(officerTaskService.completeOfficerDecision(eq("task-123"), anyString(), eq("SKILLS"), eq("APPROVE"), any()))
                 .thenReturn(response);
 
         mockMvc.perform(post("/api/v1/officer/reviews/task-123/decision")
                 .with(jwt()
                         .authorities(new SimpleGrantedAuthority("ROLE_OFFICER"))
-                        .jwt(j -> j.subject("officer_42")))
+                        .jwt(j -> j.claim("department", "SKILLS").subject("officer_42")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {
@@ -121,13 +124,13 @@ public class OfficerReviewControllerSecurityTest {
         OfficerDecisionResponse response = new OfficerDecisionResponse(
                 "task-123", "APP-1", "REJECT", "admin_1", "Fraudulent documents", LocalDateTime.now(), "COMPLETED"
         );
-        when(officerTaskService.completeOfficerDecision(eq("task-123"), anyString(), eq("REJECT"), eq("Fraudulent documents")))
+        when(officerTaskService.completeOfficerDecision(eq("task-123"), anyString(), eq("SKILLS"), eq("REJECT"), eq("Fraudulent documents")))
                 .thenReturn(response);
 
         mockMvc.perform(post("/api/v1/officer/reviews/task-123/decision")
                 .with(jwt()
                         .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))
-                        .jwt(j -> j.subject("admin_1")))
+                        .jwt(j -> j.claim("department", "SKILLS").subject("admin_1")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {

@@ -36,11 +36,13 @@ public class OfficerTaskService {
     private final TaskService taskService;
     private final HistoryService historyService;
     private final AuditService auditService;
+    private final ConsentPolicyService consentPolicyService;
 
-    public OfficerTaskService(TaskService taskService, HistoryService historyService, AuditService auditService) {
+    public OfficerTaskService(TaskService taskService, HistoryService historyService, AuditService auditService, ConsentPolicyService consentPolicyService) {
         this.taskService = taskService;
         this.historyService = historyService;
         this.auditService = auditService;
+        this.consentPolicyService = consentPolicyService;
     }
 
     /**
@@ -74,23 +76,32 @@ public class OfficerTaskService {
     /**
      * Claims a task on behalf of the authenticated officer.
      */
-    public OfficerReviewTaskResponse claimTask(String taskId, String officerId) {
+    public OfficerReviewTaskResponse claimTask(String taskId, String officerId, String officerDepartment) {
         log.info("[OFFICER_EVENT] Officer {} attempting to claim task {}", officerId, taskId);
         Task task = findActiveOfficerTaskOrThrow(taskId);
+
+        TaskContext ctx = resolveTaskContext(taskId);
+        String applicationDepartment = ctx.policy().getRequestingDepartmentId();
+        if (applicationDepartment == null || applicationDepartment.trim().isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("Application department is not configured");
+        }
+
+        String authorizedDepartment = applicationDepartment.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!authorizedDepartment.equals(officerDepartment != null ? officerDepartment.trim().toUpperCase(java.util.Locale.ROOT) : null)) {
+            throw new org.springframework.security.access.AccessDeniedException("Officer is not authorized");
+        }
 
         if (task.getAssignee() != null) {
             if (task.getAssignee().equals(officerId)) {
                 log.info("[OFFICER_EVENT] Task {} is already claimed by officer {}", taskId, officerId);
                 return mapToResponse(task);
             }
-            throw new InvalidTaskOperationException("Task " + taskId + " is already claimed by another officer: " + task.getAssignee());
+            throw new InvalidTaskOperationException("Task is already claimed by another officer");
         }
 
         taskService.claim(taskId, officerId);
         log.info("[OFFICER_EVENT] Task {} successfully claimed by officer {}", taskId, officerId);
-        Map<String, Object> variables = taskService.getVariables(taskId);
-        String applicationId = variables != null ? (String) variables.get("applicationId") : null;
-        auditService.recordOfficerClaim(applicationId, taskId, officerId);
+        auditService.recordOfficerClaim(ctx.applicationId(), taskId, officerId);
 
         Task updatedTask = taskService.createTaskQuery().taskId(taskId).singleResult();
         return mapToResponse(updatedTask != null ? updatedTask : task);
@@ -99,23 +110,32 @@ public class OfficerTaskService {
     /**
      * Unclaims a task previously claimed by the authenticated officer.
      */
-    public OfficerReviewTaskResponse unclaimTask(String taskId, String officerId) {
+    public OfficerReviewTaskResponse unclaimTask(String taskId, String officerId, String officerDepartment) {
         log.info("[OFFICER_EVENT] Officer {} attempting to unclaim task {}", officerId, taskId);
         Task task = findActiveOfficerTaskOrThrow(taskId);
+
+        TaskContext ctx = resolveTaskContext(taskId);
+        String applicationDepartment = ctx.policy().getRequestingDepartmentId();
+        if (applicationDepartment == null || applicationDepartment.trim().isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("Application department is not configured");
+        }
+
+        String authorizedDepartment = applicationDepartment.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!authorizedDepartment.equals(officerDepartment != null ? officerDepartment.trim().toUpperCase(java.util.Locale.ROOT) : null)) {
+            throw new org.springframework.security.access.AccessDeniedException("Officer is not authorized");
+        }
 
         if (task.getAssignee() == null) {
             return mapToResponse(task);
         }
 
         if (!task.getAssignee().equals(officerId)) {
-            throw new InvalidTaskOperationException("Cannot unclaim task " + taskId + " claimed by another officer: " + task.getAssignee());
+            throw new InvalidTaskOperationException("Task is assigned to another officer");
         }
 
-        Map<String, Object> variables = taskService.getVariables(taskId);
-        String applicationId = variables != null ? (String) variables.get("applicationId") : null;
         taskService.setAssignee(taskId, null);
         log.info("[OFFICER_EVENT] Task {} successfully unclaimed by officer {}", taskId, officerId);
-        auditService.recordOfficerUnclaim(applicationId, taskId, officerId);
+        auditService.recordOfficerUnclaim(ctx.applicationId(), taskId, officerId);
 
         Task updatedTask = taskService.createTaskQuery().taskId(taskId).singleResult();
         return mapToResponse(updatedTask != null ? updatedTask : task);
@@ -126,7 +146,7 @@ public class OfficerTaskService {
      * Validates task state, ensures idempotency, records audit log, and resumes the BPMN process.
      */
     @Transactional
-    public OfficerDecisionResponse completeOfficerDecision(String taskId, String officerId, String decision, String reason) {
+    public OfficerDecisionResponse completeOfficerDecision(String taskId, String officerId, String officerDepartment, String decision, String reason) {
         if (decision == null) {
             throw new ValidationException("Decision must not be null");
         }
@@ -188,15 +208,28 @@ public class OfficerTaskService {
         if (!OFFICER_TASK_DEFINITION_KEY.equals(task.getTaskDefinitionKey())) {
             log.warn("Task {} has definition key {} which is not an officer review task",
                     taskId, task.getTaskDefinitionKey());
-            throw new InvalidTaskOperationException("Task " + taskId + " is not an officer review task");
+            throw new InvalidTaskOperationException("Task is not an officer review task");
         }
 
-        if (task.getAssignee() != null && !task.getAssignee().equals(officerId)) {
-            throw new InvalidTaskOperationException("Task " + taskId + " is claimed by another officer: " + task.getAssignee());
+        if (task.getAssignee() == null) {
+            throw new InvalidTaskOperationException("Task has not been claimed");
+        }
+        if (!task.getAssignee().equals(officerId)) {
+            throw new InvalidTaskOperationException("Task is assigned to another officer");
         }
 
-        Map<String, Object> variables = taskService.getVariables(taskId);
-        String applicationId = (String) variables.get("applicationId");
+        TaskContext ctx = resolveTaskContext(taskId);
+        String applicationDepartment = ctx.policy().getRequestingDepartmentId();
+        if (applicationDepartment == null || applicationDepartment.trim().isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("Application department is not configured");
+        }
+
+        String authorizedDepartment = applicationDepartment.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!authorizedDepartment.equals(officerDepartment != null ? officerDepartment.trim().toUpperCase(java.util.Locale.ROOT) : null)) {
+            throw new org.springframework.security.access.AccessDeniedException("Officer is not authorized");
+        }
+        String applicationId = ctx.applicationId();
+
         String processInstanceId = task.getProcessInstanceId();
 
         log.info("Completing officer review task: taskId={}, applicationId={}, officerId={}, decision={}",
@@ -273,6 +306,34 @@ public class OfficerTaskService {
         }
 
         return task;
+    }
+
+
+    private record TaskContext(String applicationId, String serviceCode, com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy policy) {}
+
+    private TaskContext resolveTaskContext(String taskId) {
+        java.util.Map<String, Object> variables = taskService.getVariables(taskId);
+        if (variables == null) {
+            throw new InvalidTaskOperationException("Task context is invalid");
+        }
+
+        Object applicationIdValue = variables.get("applicationId");
+        Object serviceCodeValue = variables.get("serviceCode");
+
+        if (!(applicationIdValue instanceof String applicationId)
+                || applicationId.isBlank()
+                || !(serviceCodeValue instanceof String serviceCode)
+                || serviceCode.isBlank()) {
+            throw new InvalidTaskOperationException("Task context is invalid");
+        }
+
+        String normalizedServiceCode = serviceCode.trim().toUpperCase(java.util.Locale.ROOT);
+        com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy policy = consentPolicyService.getPolicy(normalizedServiceCode);
+        if (policy == null) {
+            throw new InvalidTaskOperationException("Task context is invalid");
+        }
+
+        return new TaskContext(applicationId.trim(), normalizedServiceCode, policy);
     }
 
     private OfficerReviewTaskResponse mapToResponse(Task task) {

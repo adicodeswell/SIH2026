@@ -36,9 +36,12 @@ public class OfficerReviewHardeningTest {
 
     @Mock
     private HistoryService historyService;
+    
 
     @Mock
     private AuditService auditService;
+    @Mock
+    private com.mahasetu.securityworkflow.service.ConsentPolicyService consentPolicyService;
 
     @Mock
     private Task task;
@@ -61,6 +64,9 @@ public class OfficerReviewHardeningTest {
     @Mock
     private HistoricVariableInstance histAppIdVar;
 
+    @Mock
+    
+
     private OfficerTaskService officerTaskService;
 
     private static final String TASK_ID = "task-100";
@@ -69,7 +75,12 @@ public class OfficerReviewHardeningTest {
 
     @BeforeEach
     void setUp() {
-        officerTaskService = new OfficerTaskService(taskService, historyService, auditService);
+        com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy policy = new com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy(
+            "SKILL_BENEFIT", java.util.Collections.emptySet(), "", "", "SKILLS", java.util.Collections.emptySet(), java.util.Collections.emptySet()
+        );
+        lenient().when(consentPolicyService.getPolicy(any())).thenReturn(policy);
+
+        officerTaskService = new OfficerTaskService(taskService, historyService, auditService, consentPolicyService);
     }
 
     private void setupActiveTaskMock(String assignee) {
@@ -82,14 +93,18 @@ public class OfficerReviewHardeningTest {
         when(task.getTaskDefinitionKey()).thenReturn(OfficerTaskService.OFFICER_TASK_DEFINITION_KEY);
         when(task.getAssignee()).thenReturn(assignee);
         when(task.getCreateTime()).thenReturn(new Date());
-        when(taskService.getVariables(TASK_ID)).thenReturn(Map.of("applicationId", "APP-100"));
+        when(taskService.getVariables(TASK_ID)).thenReturn(Map.of("applicationId", "APP-100", "serviceCode", "TEST_SVC"));
+        com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy policy = new com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy(
+            "TEST_SVC", java.util.Set.of(), "verification", "NONE", "SKILLS", java.util.Set.of(), java.util.Set.of()
+        );
+        lenient().when(consentPolicyService.getPolicy("TEST_SVC")).thenReturn(policy);
     }
 
     @Test
     void testClaim_UnassignedTask_SucceedsAndAudits() {
         setupActiveTaskMock(null);
 
-        OfficerReviewTaskResponse response = officerTaskService.claimTask(TASK_ID, OFFICER_1);
+        OfficerReviewTaskResponse response = officerTaskService.claimTask(TASK_ID, OFFICER_1, "SKILLS");
 
         assertNotNull(response);
         verify(taskService).claim(TASK_ID, OFFICER_1);
@@ -100,7 +115,7 @@ public class OfficerReviewHardeningTest {
     void testClaim_AlreadyClaimedBySameOfficer_IdempotentSuccess() {
         setupActiveTaskMock(OFFICER_1);
 
-        OfficerReviewTaskResponse response = officerTaskService.claimTask(TASK_ID, OFFICER_1);
+        OfficerReviewTaskResponse response = officerTaskService.claimTask(TASK_ID, OFFICER_1, "SKILLS");
 
         assertNotNull(response);
         verify(taskService, never()).claim(anyString(), anyString());
@@ -110,14 +125,14 @@ public class OfficerReviewHardeningTest {
     void testClaim_AlreadyClaimedByAnotherOfficer_ThrowsInvalidTaskOperation() {
         setupActiveTaskMock(OFFICER_2);
 
-        assertThrows(InvalidTaskOperationException.class, () -> officerTaskService.claimTask(TASK_ID, OFFICER_1));
+        assertThrows(InvalidTaskOperationException.class, () -> officerTaskService.claimTask(TASK_ID, OFFICER_1, "SKILLS"));
     }
 
     @Test
     void testUnclaim_AssignedOfficer_SucceedsAndAudits() {
         setupActiveTaskMock(OFFICER_1);
 
-        OfficerReviewTaskResponse response = officerTaskService.unclaimTask(TASK_ID, OFFICER_1);
+        OfficerReviewTaskResponse response = officerTaskService.unclaimTask(TASK_ID, OFFICER_1, "SKILLS");
 
         assertNotNull(response);
         verify(taskService).setAssignee(TASK_ID, null);
@@ -128,14 +143,14 @@ public class OfficerReviewHardeningTest {
     void testUnclaim_WrongOfficer_ThrowsInvalidTaskOperation() {
         setupActiveTaskMock(OFFICER_2);
 
-        assertThrows(InvalidTaskOperationException.class, () -> officerTaskService.unclaimTask(TASK_ID, OFFICER_1));
+        assertThrows(InvalidTaskOperationException.class, () -> officerTaskService.unclaimTask(TASK_ID, OFFICER_1, "SKILLS"));
     }
 
     @Test
     void testUnclaim_UnassignedTask_IsSafe() {
         setupActiveTaskMock(null);
 
-        OfficerReviewTaskResponse response = officerTaskService.unclaimTask(TASK_ID, OFFICER_1);
+        OfficerReviewTaskResponse response = officerTaskService.unclaimTask(TASK_ID, OFFICER_1, "SKILLS");
 
         assertNotNull(response);
         verify(taskService, never()).setAssignee(anyString(), any());
@@ -145,7 +160,7 @@ public class OfficerReviewHardeningTest {
     void testCompleteDecision_Approve_SucceedsAndAudits() {
         setupActiveTaskMock(OFFICER_1);
 
-        OfficerDecisionResponse response = officerTaskService.completeOfficerDecision(TASK_ID, OFFICER_1, "APPROVE", "Looks good");
+        OfficerDecisionResponse response = officerTaskService.completeOfficerDecision(TASK_ID, OFFICER_1, "SKILLS", "APPROVE", "Looks good");
 
         assertNotNull(response);
         assertEquals("APPROVE", response.getDecision());
@@ -159,7 +174,7 @@ public class OfficerReviewHardeningTest {
     void testCompleteDecision_RejectWithReason_SucceedsAndAudits() {
         setupActiveTaskMock(OFFICER_1);
 
-        OfficerDecisionResponse response = officerTaskService.completeOfficerDecision(TASK_ID, OFFICER_1, "REJECT", "Document missing");
+        OfficerDecisionResponse response = officerTaskService.completeOfficerDecision(TASK_ID, OFFICER_1, "SKILLS", "REJECT", "Document missing");
 
         assertNotNull(response);
         assertEquals("REJECT", response.getDecision());
@@ -168,14 +183,14 @@ public class OfficerReviewHardeningTest {
 
     @Test
     void testCompleteDecision_RejectWithoutReason_ThrowsValidationException() {
-        assertThrows(ValidationException.class, () -> officerTaskService.completeOfficerDecision(TASK_ID, OFFICER_1, "REJECT", null));
-        assertThrows(ValidationException.class, () -> officerTaskService.completeOfficerDecision(TASK_ID, OFFICER_1, "REJECT", "   "));
+        assertThrows(ValidationException.class, () -> officerTaskService.completeOfficerDecision(TASK_ID, OFFICER_1, "SKILLS", "REJECT", null));
+        assertThrows(ValidationException.class, () -> officerTaskService.completeOfficerDecision(TASK_ID, OFFICER_1, "SKILLS", "REJECT", "   "));
     }
 
     @Test
     void testCompleteDecision_NullOrInvalidDecision_ThrowsValidationException() {
-        assertThrows(ValidationException.class, () -> officerTaskService.completeOfficerDecision(TASK_ID, OFFICER_1, null, "Reason"));
-        assertThrows(ValidationException.class, () -> officerTaskService.completeOfficerDecision(TASK_ID, OFFICER_1, "MAYBE", "Reason"));
+        assertThrows(ValidationException.class, () -> officerTaskService.completeOfficerDecision(TASK_ID, OFFICER_1, "SKILLS", null, "Reason"));
+        assertThrows(ValidationException.class, () -> officerTaskService.completeOfficerDecision(TASK_ID, OFFICER_1, "SKILLS", "MAYBE", "Reason"));
     }
 
     @Test
@@ -212,7 +227,7 @@ public class OfficerReviewHardeningTest {
         when(histVarQuery3.singleResult()).thenReturn(histAppIdVar);
         when(histAppIdVar.getValue()).thenReturn("APP-100");
 
-        OfficerDecisionResponse response = officerTaskService.completeOfficerDecision(TASK_ID, OFFICER_1, "APPROVE", "Looks good");
+        OfficerDecisionResponse response = officerTaskService.completeOfficerDecision(TASK_ID, OFFICER_1, "SKILLS", "APPROVE", "Looks good");
 
         assertNotNull(response);
         assertEquals("APPROVE", response.getDecision());
@@ -239,6 +254,6 @@ public class OfficerReviewHardeningTest {
         when(histVarQuery.singleResult()).thenReturn(histOfficerVar);
         when(histOfficerVar.getValue()).thenReturn(OFFICER_1);
 
-        assertThrows(TaskAlreadyCompletedException.class, () -> officerTaskService.completeOfficerDecision(TASK_ID, OFFICER_2, "APPROVE", "Looks good"));
+        assertThrows(TaskAlreadyCompletedException.class, () -> officerTaskService.completeOfficerDecision(TASK_ID, OFFICER_2, "SKILLS", "APPROVE", "Looks good"));
     }
 }
