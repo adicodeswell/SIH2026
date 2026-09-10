@@ -12,24 +12,24 @@ export interface NotFoundProps {
 }
 
 export const NotFound: React.FC<NotFoundProps> = ({
-  title = 'Page not found',
-  description = "The requested resource could not be found or may have moved to a different department section.",
+  title = 'Resource Not Located',
+  description = 'The requested government resource or scheme could not be found or may have been transitioned.',
   actionHref = '/',
-  actionText = 'Return to Portal Home',
+  actionText = 'Return to Portal Gateway',
 }) => {
   return (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-6 space-y-5 max-w-md mx-auto">
-      <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center border border-slate-200">
-        <FileQuestion className="w-8 h-8 text-slate-600" />
+    <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-6 space-y-4 max-w-md mx-auto">
+      <div className="w-14 h-14 rounded-sm bg-slate-100 flex items-center justify-center border border-slate-200">
+        <FileQuestion className="w-7 h-7 text-slate-600" />
       </div>
-      <div className="space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
-        <p className="text-sm text-slate-600 leading-relaxed">{description}</p>
+      <div className="space-y-1.5">
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">{title}</h1>
+        <p className="text-xs text-slate-600 leading-relaxed">{description}</p>
       </div>
-      <div className="flex gap-3">
+      <div className="pt-2">
         <Link to={actionHref}>
-          <Button className="font-medium gap-2">
-            <Home className="w-4 h-4" />
+          <Button className="font-bold text-xs h-9 gap-1.5 bg-[#0B1F3A] hover:bg-[#102A43] text-white">
+            <Home className="w-3.5 h-3.5" />
             {actionText}
           </Button>
         </Link>
@@ -59,19 +59,19 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center text-center p-8 bg-white border border-dashed border-slate-200 rounded-xl space-y-4',
+        'flex flex-col items-center justify-center text-center p-8 bg-white border border-dashed border-slate-300 rounded-md space-y-3',
         className
       )}
     >
-      <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-200 text-slate-500">
-        {icon || <Inbox className="w-6 h-6" />}
+      <div className="w-10 h-10 rounded-sm bg-slate-50 flex items-center justify-center border border-slate-200 text-slate-500">
+        {icon || <Inbox className="w-5 h-5" />}
       </div>
       <div className="max-w-sm space-y-1">
-        <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-        <p className="text-sm text-slate-500 leading-normal">{description}</p>
+        <h3 className="text-sm font-bold text-slate-900">{title}</h3>
+        <p className="text-xs text-slate-500 leading-normal">{description}</p>
       </div>
       {action && (
-        <Button variant="outline" size="sm" onClick={action.onClick}>
+        <Button variant="outline" size="xs" onClick={action.onClick} className="text-xs font-semibold h-8 mt-1">
           {action.label}
         </Button>
       )}
@@ -87,8 +87,8 @@ export interface ErrorStateProps {
 }
 
 export const ErrorState: React.FC<ErrorStateProps> = ({
-  title = 'Service Unavailable',
-  message = 'An unexpected error occurred while communicating with the service.',
+  title = 'Service Communication Interruption',
+  message = 'An unexpected error occurred while communicating with the government service endpoint.',
   onRetry,
   className,
 }) => {
@@ -96,26 +96,26 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
     <div
       role="alert"
       className={cn(
-        'flex flex-col items-center justify-center text-center p-8 bg-red-50/50 border border-red-200 rounded-xl space-y-4 max-w-lg mx-auto',
+        'flex flex-col items-center justify-center text-center p-6 bg-red-50/60 border border-red-200 rounded-md space-y-3 max-w-lg mx-auto',
         className
       )}
     >
-      <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center text-red-700">
-        <AlertTriangle className="w-6 h-6" />
+      <div className="w-10 h-10 rounded-sm bg-red-100 flex items-center justify-center text-red-700">
+        <AlertTriangle className="w-5 h-5" />
       </div>
       <div className="space-y-1">
-        <h3 className="text-base font-semibold text-red-950">{title}</h3>
-        <p className="text-sm text-red-800 leading-normal">{message}</p>
+        <h3 className="text-sm font-bold text-red-950">{title}</h3>
+        <p className="text-xs text-red-800 leading-normal">{message}</p>
       </div>
       {onRetry && (
         <Button
           variant="outline"
-          size="sm"
+          size="xs"
           onClick={onRetry}
-          className="border-red-200 bg-white text-red-900 hover:bg-red-50 gap-2"
+          className="border-red-300 bg-white text-red-900 hover:bg-red-50 gap-1.5 h-8 font-semibold text-xs mt-1"
         >
-          <RefreshCw className="w-4 h-4" />
-          Try Again
+          <RefreshCw className="w-3.5 h-3.5" />
+          Retry Connection
         </Button>
       )}
     </div>
