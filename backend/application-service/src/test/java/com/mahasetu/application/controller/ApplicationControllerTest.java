@@ -30,6 +30,8 @@ public class ApplicationControllerTest {
 
     @MockBean
     private ApplicationService applicationService;
+    @MockBean
+    private com.mahasetu.application.integration.ConsentClient consentClient;
 
     @Autowired
     private ObjectMapper objectMapper;

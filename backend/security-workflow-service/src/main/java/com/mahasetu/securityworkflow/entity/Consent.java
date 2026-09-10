@@ -12,7 +12,7 @@ public class Consent {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "citizen_id", nullable = false)
+    @Column(name = "citizen_id", nullable = false, length = 50)
     private String citizenId;
 
     @Column(name = "application_id")
@@ -21,7 +21,7 @@ public class Consent {
     @Column(name = "service_code")
     private String serviceCode;
 
-    @Column(name = "requesting_department_id", nullable = false)
+    @Column(name = "requesting_department_id", nullable = false, length = 50)
     private String requestingDepartmentId;
 
     @Column(name = "data_scope", nullable = false)

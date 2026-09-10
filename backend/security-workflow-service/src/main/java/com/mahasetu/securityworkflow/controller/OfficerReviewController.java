@@ -52,12 +52,25 @@ public class OfficerReviewController {
             throw new org.springframework.security.access.AccessDeniedException("Officer department not found");
         }
 
-        String department = jwtAuth.getToken().getClaimAsString("department");
+        Object deptClaim = jwtAuth.getToken().getClaim("department");
+        String department = null;
+        if (deptClaim instanceof java.util.Collection collection) {
+            if (!collection.isEmpty()) {
+                department = String.valueOf(collection.iterator().next());
+            }
+        } else if (deptClaim instanceof String str) {
+            department = str;
+        } else if (deptClaim != null) {
+            department = String.valueOf(deptClaim);
+        }
 
         if (department == null || department.trim().isEmpty()) {
             throw new org.springframework.security.access.AccessDeniedException("Officer department not found");
         }
 
+        // Clean up brackets if Keycloak serialized array as string e.g. "["DEPT-SKILLS"]"
+        department = department.replaceAll("^\\[\"?|\"?\\]$", "");
+        
         return department.trim().toUpperCase(java.util.Locale.ROOT);
     }
 

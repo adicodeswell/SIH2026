@@ -69,7 +69,7 @@
     <bpmn:sequenceFlow id="Flow_Interop" sourceRef="Task_FetchInterop" targetRef="Task_VerifyData" />
 
     
-    <bpmn:serviceTask id="Task_VerifyData" name="Verify Data" camunda:delegateExpression="${verifyDataWorker}"><bpmn:incoming>Flow_Interop</bpmn:incoming><bpmn:outgoing>Flow_Verify</bpmn:outgoing></bpmn:serviceTask><bpmn:sequenceFlow id="Flow_VerifyData_To_PendingReview" sourceRef="Task_VerifyData" targetRef="Task_SetPendingReview" /><bpmn:serviceTask id="Task_SetPendingReview" name="Set Pending Officer Review" camunda:expression="${execution.setVariable('workflowStatus', 'PENDING_OFFICER_REVIEW')}">
+    <bpmn:serviceTask id="Task_VerifyData" name="Verify Data" camunda:delegateExpression="${verifyDataWorker}"><bpmn:incoming>Flow_Interop</bpmn:incoming><bpmn:outgoing>Flow_VerifyData_To_PendingReview</bpmn:outgoing></bpmn:serviceTask><bpmn:sequenceFlow id="Flow_VerifyData_To_PendingReview" sourceRef="Task_VerifyData" targetRef="Task_SetPendingReview" /><bpmn:serviceTask id="Task_SetPendingReview" name="Set Pending Officer Review" camunda:expression="${execution.setVariable('workflowStatus', 'PENDING_OFFICER_REVIEW')}">
       <bpmn:incoming>Flow_VerifyData_To_PendingReview</bpmn:incoming>
       <bpmn:outgoing>Flow_To_CallbackPending</bpmn:outgoing>
     </bpmn:serviceTask>

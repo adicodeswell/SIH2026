@@ -16,7 +16,7 @@ public class AuditLog {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "application_id")
+    @Column(name = "application_id", length = 50)
     private String applicationId;
 
     @Column(name = "actor_id")

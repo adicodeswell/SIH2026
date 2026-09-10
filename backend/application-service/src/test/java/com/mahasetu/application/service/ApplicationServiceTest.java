@@ -34,6 +34,8 @@ public class ApplicationServiceTest {
     private ApplicationEventRepository eventRepository;
     @Mock
     private WorkflowClient workflowClient;
+    @org.mockito.Mock
+    private com.mahasetu.application.integration.ConsentClient consentClient;
 
     @InjectMocks
     private ApplicationService applicationService;

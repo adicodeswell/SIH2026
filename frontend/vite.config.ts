@@ -14,27 +14,27 @@ export default defineConfig({
   server: {
     proxy: {
       '/api/v1/applications': {
-        target: 'http://localhost:8081',
+        target: 'http://127.0.0.1:8081',
         changeOrigin: true,
       },
       '/api/v1/services': {
-        target: 'http://localhost:8081',
+        target: 'http://127.0.0.1:8081',
         changeOrigin: true,
       },
       '/api/v1/interop': {
-        target: 'http://localhost:8082',
+        target: 'http://127.0.0.1:8082',
         changeOrigin: true,
       },
       '/api/v1/workflow': {
-        target: 'http://localhost:8083',
+        target: 'http://127.0.0.1:8083',
         changeOrigin: true,
       },
       '/api/v1/officer': {
-        target: 'http://localhost:8083',
+        target: 'http://127.0.0.1:8083',
         changeOrigin: true,
       },
       '/api/v1/consents': {
-        target: 'http://localhost:8083',
+        target: 'http://127.0.0.1:8083',
         changeOrigin: true,
       }
     }

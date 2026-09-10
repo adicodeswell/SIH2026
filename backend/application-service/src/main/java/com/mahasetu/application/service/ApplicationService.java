@@ -58,29 +58,12 @@ public class ApplicationService {
         application.setApplicationNumber(generateApplicationNumber());
         application.setCitizen(citizen);
         application.setService(service);
-        application.setStatus(ApplicationStatus.SUBMITTED);
-        application.setSubmittedAt(LocalDateTime.now());
+        application.setStatus(ApplicationStatus.DRAFT);
+        application.setSubmittedAt(LocalDateTime.now()); // Or null? The original sets it here. Let's keep it or set it on submit.
 
         Application savedApplication = applicationRepository.save(application);
 
-        recordEvent(savedApplication, "APPLICATION_SUBMITTED", null, ApplicationStatus.SUBMITTED, "Application created and submitted", request.getCitizenId());
-
-        String workflowKey = service.getWorkflowKey() != null && !service.getWorkflowKey().isBlank()
-                ? service.getWorkflowKey()
-                : "application-orchestration";
-
-        try {
-            workflowClient.startWorkflow(savedApplication.getApplicationNumber(), workflowKey);
-            recordEvent(savedApplication, "WORKFLOW_STARTED", ApplicationStatus.SUBMITTED, ApplicationStatus.SUBMITTED,
-                    "Workflow started: " + workflowKey, "application-service");
-        } catch (Exception e) {
-            e.printStackTrace();
-            ApplicationStatus oldStatus = savedApplication.getStatus();
-            savedApplication.setStatus(ApplicationStatus.FAILED);
-            savedApplication = applicationRepository.save(savedApplication);
-            recordEvent(savedApplication, "WORKFLOW_START_FAILED", oldStatus, ApplicationStatus.FAILED,
-                    "Workflow start failed", "application-service");
-        }
+        recordEvent(savedApplication, "APPLICATION_CREATED", null, ApplicationStatus.DRAFT, "Application created", request.getCitizenId());
 
         return mapToResponse(savedApplication);
     }
@@ -112,6 +95,50 @@ public class ApplicationService {
     }
 
     @Transactional
+    public ApplicationResponse submitApplication(String applicationNumber, String citizenId, com.mahasetu.application.integration.ConsentClient consentClient) {
+        Application application = applicationRepository.findByApplicationNumber(applicationNumber)
+                .orElseThrow(() -> new ResourceNotFoundException("Application not found: " + applicationNumber));
+                
+        if (!application.getCitizen().getCitizenId().equals(citizenId)) {
+             throw new org.springframework.security.access.AccessDeniedException("Cannot submit an application you do not own");
+        }
+
+        if (application.getStatus() != ApplicationStatus.DRAFT) {
+             throw new ValidationException("Only DRAFT applications can be submitted");
+        }
+
+        boolean hasConsent = consentClient.hasConsentForApplication(applicationNumber);
+        if (!hasConsent) {
+             throw new ValidationException("Cannot submit application: Required consent is not granted");
+        }
+
+        ApplicationStatus oldStatus = application.getStatus();
+        application.setStatus(ApplicationStatus.SUBMITTED);
+        application.setSubmittedAt(LocalDateTime.now());
+        Application savedApplication = applicationRepository.save(application);
+
+        recordEvent(savedApplication, "APPLICATION_SUBMITTED", oldStatus, ApplicationStatus.SUBMITTED, "Application submitted", citizenId);
+
+        String workflowKey = application.getService().getWorkflowKey() != null && !application.getService().getWorkflowKey().isBlank()
+                ? application.getService().getWorkflowKey()
+                : "application-orchestration";
+
+        try {
+            workflowClient.startWorkflow(savedApplication.getApplicationNumber(), workflowKey);
+            recordEvent(savedApplication, "WORKFLOW_STARTED", ApplicationStatus.SUBMITTED, ApplicationStatus.SUBMITTED,
+                    "Workflow started: " + workflowKey, "application-service");
+        } catch (Exception e) {
+            log.error("Failed to start workflow", e);
+            savedApplication.setStatus(ApplicationStatus.FAILED);
+            savedApplication = applicationRepository.save(savedApplication);
+            recordEvent(savedApplication, "WORKFLOW_START_FAILED", ApplicationStatus.SUBMITTED, ApplicationStatus.FAILED,
+                    "Workflow start failed", "application-service");
+            throw new RuntimeException("Workflow failed to start. Application submission aborted.");
+        }
+
+        return mapToResponse(savedApplication);
+    }
+
     public ApplicationResponse applyWorkflowStatusCallback(String applicationNumber, WorkflowStatusCallbackRequest request) {
         if (request.getApplicationId() != null && !applicationNumber.equals(request.getApplicationId())) {
             throw new ValidationException("applicationId path and payload must match");

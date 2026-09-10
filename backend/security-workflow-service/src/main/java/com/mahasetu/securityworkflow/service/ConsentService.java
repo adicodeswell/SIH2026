@@ -116,6 +116,11 @@ public class ConsentService {
         }
     }
 
+    
+    public boolean hasGrantedConsentForApplication(String applicationId) {
+        return consentRepository.findFirstByApplicationIdAndStatusOrderByGrantedAtDesc(applicationId, "GRANTED").isPresent();
+    }
+
     public List<Consent> getConsents(String citizenId) {
         return consentRepository.findByCitizenId(citizenId);
     }

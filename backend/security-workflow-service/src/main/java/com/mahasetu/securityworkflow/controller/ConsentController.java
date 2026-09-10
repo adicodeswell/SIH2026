@@ -58,4 +58,10 @@ public class ConsentController {
         String citizenId = extractCitizenId(authentication);
         return ResponseEntity.ok(consentService.getConsents(citizenId));
     }
+
+    @GetMapping("/internal/v1/consents/check")
+    public ResponseEntity<Boolean> checkConsentInternal(@RequestParam String applicationId) {
+        boolean hasConsent = consentService.hasGrantedConsentForApplication(applicationId);
+        return ResponseEntity.ok(hasConsent);
+    }
 }

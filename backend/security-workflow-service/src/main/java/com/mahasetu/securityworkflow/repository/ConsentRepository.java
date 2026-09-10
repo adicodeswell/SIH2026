@@ -17,4 +17,6 @@ public interface ConsentRepository extends JpaRepository<Consent, UUID> {
 
     // New method for Phase 2 application-bound consent
     Optional<Consent> findFirstByCitizenIdAndApplicationIdAndServiceCodeAndStatusOrderByGrantedAtDesc(String citizenId, String applicationId, String serviceCode, String status);
+
+    Optional<Consent> findFirstByApplicationIdAndStatusOrderByGrantedAtDesc(String applicationId, String status);
 }
