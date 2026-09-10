@@ -172,17 +172,30 @@ public class OfficerTaskService {
 
             if (historicTask != null && historicTask.getEndTime() != null) {
                 log.warn("Task {} exists in history and has already completed", taskId);
+                
+                String procInstId = historicTask.getProcessInstanceId();
+                if (procInstId == null || procInstId.isBlank()) {
+                    throw new InvalidTaskOperationException("Task context is invalid");
+                }
+                
+                TaskContext ctx = resolveHistoricalTaskContext(procInstId);
+                String applicationDepartment = ctx.policy().getRequestingDepartmentId();
+                
+                if (applicationDepartment == null || applicationDepartment.trim().isEmpty()) {
+                    throw new org.springframework.security.access.AccessDeniedException("Application department is not configured");
+                }
+                String authorizedDepartment = applicationDepartment.trim().toUpperCase(java.util.Locale.ROOT);
+                if (!authorizedDepartment.equals(officerDepartment != null ? officerDepartment.trim().toUpperCase(java.util.Locale.ROOT) : null)) {
+                    throw new org.springframework.security.access.AccessDeniedException("Officer is not authorized");
+                }
+
                 org.camunda.bpm.engine.history.HistoricVariableInstance histOfficer = historyService.createHistoricVariableInstanceQuery()
-                        .processInstanceId(historicTask.getProcessInstanceId())
+                        .processInstanceId(procInstId)
                         .variableName("officerId")
                         .singleResult();
                 org.camunda.bpm.engine.history.HistoricVariableInstance histDecision = historyService.createHistoricVariableInstanceQuery()
-                        .processInstanceId(historicTask.getProcessInstanceId())
+                        .processInstanceId(procInstId)
                         .variableName("officerDecision")
-                        .singleResult();
-                org.camunda.bpm.engine.history.HistoricVariableInstance histAppId = historyService.createHistoricVariableInstanceQuery()
-                        .processInstanceId(historicTask.getProcessInstanceId())
-                        .variableName("applicationId")
                         .singleResult();
 
                 if (histOfficer != null && officerId.equals(histOfficer.getValue()) &&
@@ -190,7 +203,7 @@ public class OfficerTaskService {
                     log.info("Duplicate decision detected for completed task {}: returning idempotent response", taskId);
                     return new OfficerDecisionResponse(
                             taskId,
-                            histAppId != null ? (String) histAppId.getValue() : null,
+                            ctx.applicationId(),
                             normalizedDecision,
                             officerId,
                             reason,
@@ -335,6 +348,39 @@ public class OfficerTaskService {
 
         return new TaskContext(applicationId.trim(), normalizedServiceCode, policy);
     }
+
+    private TaskContext resolveHistoricalTaskContext(String processInstanceId) {
+        org.camunda.bpm.engine.history.HistoricVariableInstance appVar = historyService.createHistoricVariableInstanceQuery()
+                .processInstanceId(processInstanceId)
+                .variableName("applicationId")
+                .singleResult();
+                
+        org.camunda.bpm.engine.history.HistoricVariableInstance svcVar = historyService.createHistoricVariableInstanceQuery()
+                .processInstanceId(processInstanceId)
+                .variableName("serviceCode")
+                .singleResult();
+
+        if (appVar == null || svcVar == null) {
+            throw new InvalidTaskOperationException("Task context is invalid");
+        }
+
+        Object applicationIdValue = appVar.getValue();
+        Object serviceCodeValue = svcVar.getValue();
+
+        if (!(applicationIdValue instanceof String applicationId) || applicationId.isBlank() ||
+            !(serviceCodeValue instanceof String serviceCode) || serviceCode.isBlank()) {
+            throw new InvalidTaskOperationException("Task context is invalid");
+        }
+
+        String normalizedServiceCode = serviceCode.trim().toUpperCase(java.util.Locale.ROOT);
+        com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy policy = consentPolicyService.getPolicy(normalizedServiceCode);
+        if (policy == null) {
+            throw new InvalidTaskOperationException("Task context is invalid");
+        }
+
+        return new TaskContext(applicationId.trim(), normalizedServiceCode, policy);
+    }
+
 
     private OfficerReviewTaskResponse mapToResponse(Task task) {
         Map<String, Object> variables = taskService.getVariables(task.getId());

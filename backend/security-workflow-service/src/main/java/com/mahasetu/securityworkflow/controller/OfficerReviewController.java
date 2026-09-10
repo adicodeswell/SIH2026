@@ -62,9 +62,15 @@ public class OfficerReviewController {
     private String extractUserId(Authentication authentication) {
         if (authentication instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken jwtAuth) {
             String username = jwtAuth.getToken().getClaimAsString("preferred_username");
-            if (username != null) return username;
+            if (username != null && !username.trim().isEmpty()) {
+                return username.trim();
+            }
         }
-        return authentication.getName();
+        String name = authentication.getName();
+        if (name == null || name.trim().isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("Officer identity not found");
+        }
+        return name.trim();
     }
 
     /**

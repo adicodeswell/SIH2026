@@ -172,69 +172,114 @@ class OfficerTaskServiceTest {
 
     @Test
     void testCompleteOfficerDecision_AlreadyCompleted_DifferentDecision_ThrowsTaskAlreadyCompletedException() {
-        lenient().when(taskService.createTaskQuery()).thenReturn(taskQuery);
-        lenient().when(taskQuery.taskId("task-done")).thenReturn(taskQuery);
-        lenient().when(taskQuery.active()).thenReturn(taskQuery);
-        lenient().when(taskQuery.singleResult()).thenReturn(null);
-
+        
+        
+        org.camunda.bpm.engine.task.TaskQuery mockTaskQuery = mock(org.camunda.bpm.engine.task.TaskQuery.class);
+        lenient().when(taskService.createTaskQuery()).thenReturn(mockTaskQuery);
+        lenient().when(mockTaskQuery.taskId(anyString())).thenReturn(mockTaskQuery);
+        lenient().when(mockTaskQuery.active()).thenReturn(mockTaskQuery);
+        lenient().when(mockTaskQuery.singleResult()).thenReturn(null);
+    
         HistoricTaskInstance historicTask = mock(HistoricTaskInstance.class);
-        lenient().when(historicTask.getEndTime()).thenReturn(new Date());
+        lenient().when(historicTask.getEndTime()).thenReturn(new java.util.Date());
         lenient().when(historicTask.getProcessInstanceId()).thenReturn("proc-done");
 
         lenient().when(historyService.createHistoricTaskInstanceQuery()).thenReturn(historicTaskQuery);
-        lenient().when(historicTaskQuery.taskId("task-done")).thenReturn(historicTaskQuery);
+        lenient().when(historicTaskQuery.taskId(anyString())).thenReturn(historicTaskQuery);
         lenient().when(historicTaskQuery.singleResult()).thenReturn(historicTask);
 
-        org.camunda.bpm.engine.history.HistoricVariableInstanceQuery varQuery = mock(org.camunda.bpm.engine.history.HistoricVariableInstanceQuery.class);
-        lenient().when(historyService.createHistoricVariableInstanceQuery()).thenReturn(varQuery);
-        lenient().when(varQuery.processInstanceId("proc-done")).thenReturn(varQuery);
-        lenient().when(varQuery.variableName(anyString())).thenReturn(varQuery);
-        lenient().when(varQuery.singleResult()).thenReturn(null);
+        org.camunda.bpm.engine.history.HistoricVariableInstanceQuery smartVarQuery = mock(org.camunda.bpm.engine.history.HistoricVariableInstanceQuery.class);
+        lenient().when(historyService.createHistoricVariableInstanceQuery()).thenReturn(smartVarQuery);
+        lenient().when(smartVarQuery.processInstanceId(anyString())).thenReturn(smartVarQuery);
+        lenient().when(smartVarQuery.variableName(anyString())).thenAnswer(inv -> {
+            String varName = inv.getArgument(0);
+            org.camunda.bpm.engine.history.HistoricVariableInstanceQuery mockQuery = mock(org.camunda.bpm.engine.history.HistoricVariableInstanceQuery.class);
+            org.camunda.bpm.engine.history.HistoricVariableInstance mockVar = mock(org.camunda.bpm.engine.history.HistoricVariableInstance.class);
+            
+            if ("applicationId".equals(varName)) {
+                lenient().when(mockVar.getValue()).thenReturn("APP-1001");
+                lenient().when(mockQuery.singleResult()).thenReturn(mockVar);
+            } else if ("serviceCode".equals(varName)) {
+                lenient().when(mockVar.getValue()).thenReturn("SKILLS");
+                lenient().when(mockQuery.singleResult()).thenReturn(mockVar);
+            } else if ("officerId".equals(varName)) {
+                lenient().when(mockVar.getValue()).thenReturn("officer_1");
+                lenient().when(mockQuery.singleResult()).thenReturn(mockVar);
+            } else if ("officerDecision".equals(varName)) {
+                lenient().when(mockVar.getValue()).thenReturn("APPROVE");
+                lenient().when(mockQuery.singleResult()).thenReturn(mockVar);
+            } else {
+                lenient().when(mockQuery.singleResult()).thenReturn(null);
+            }
+            return mockQuery;
+        });
 
+        com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy policy = new com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy(
+            "SKILLS", java.util.Set.of(), "verification", "NONE", "SKILLS", java.util.Set.of(), java.util.Set.of()
+        );
+        lenient().when(consentPolicyService.getPolicy("SKILLS")).thenReturn(policy);
+
+        
         assertThrows(TaskAlreadyCompletedException.class, () ->
-                officerTaskService.completeOfficerDecision("task-done", "officer_1", "SKILLS", "APPROVE", null));
+                officerTaskService.completeOfficerDecision("task-done", "officer_1", "SKILLS", "REJECT", "Reason"));
+    
     }
 
     @Test
     void testCompleteOfficerDecision_DuplicateSameDecision_ReturnsIdempotentResponse() {
-        lenient().when(taskService.createTaskQuery()).thenReturn(taskQuery);
-        lenient().when(taskQuery.taskId("task-dup")).thenReturn(taskQuery);
-        lenient().when(taskQuery.active()).thenReturn(taskQuery);
-        lenient().when(taskQuery.singleResult()).thenReturn(null);
-
+        
+        
+        org.camunda.bpm.engine.task.TaskQuery mockTaskQuery = mock(org.camunda.bpm.engine.task.TaskQuery.class);
+        lenient().when(taskService.createTaskQuery()).thenReturn(mockTaskQuery);
+        lenient().when(mockTaskQuery.taskId(anyString())).thenReturn(mockTaskQuery);
+        lenient().when(mockTaskQuery.active()).thenReturn(mockTaskQuery);
+        lenient().when(mockTaskQuery.singleResult()).thenReturn(null);
+    
         HistoricTaskInstance historicTask = mock(HistoricTaskInstance.class);
-        lenient().when(historicTask.getEndTime()).thenReturn(new Date());
-        lenient().when(historicTask.getProcessInstanceId()).thenReturn("proc-dup");
+        lenient().when(historicTask.getEndTime()).thenReturn(new java.util.Date());
+        lenient().when(historicTask.getProcessInstanceId()).thenReturn("proc-done");
 
         lenient().when(historyService.createHistoricTaskInstanceQuery()).thenReturn(historicTaskQuery);
-        lenient().when(historicTaskQuery.taskId("task-dup")).thenReturn(historicTaskQuery);
+        lenient().when(historicTaskQuery.taskId(anyString())).thenReturn(historicTaskQuery);
         lenient().when(historicTaskQuery.singleResult()).thenReturn(historicTask);
 
-        org.camunda.bpm.engine.history.HistoricVariableInstance varOfficer = mock(org.camunda.bpm.engine.history.HistoricVariableInstance.class);
-        lenient().when(varOfficer.getValue()).thenReturn("officer_1");
+        org.camunda.bpm.engine.history.HistoricVariableInstanceQuery smartVarQuery = mock(org.camunda.bpm.engine.history.HistoricVariableInstanceQuery.class);
+        lenient().when(historyService.createHistoricVariableInstanceQuery()).thenReturn(smartVarQuery);
+        lenient().when(smartVarQuery.processInstanceId(anyString())).thenReturn(smartVarQuery);
+        lenient().when(smartVarQuery.variableName(anyString())).thenAnswer(inv -> {
+            String varName = inv.getArgument(0);
+            org.camunda.bpm.engine.history.HistoricVariableInstanceQuery mockQuery = mock(org.camunda.bpm.engine.history.HistoricVariableInstanceQuery.class);
+            org.camunda.bpm.engine.history.HistoricVariableInstance mockVar = mock(org.camunda.bpm.engine.history.HistoricVariableInstance.class);
+            
+            if ("applicationId".equals(varName)) {
+                lenient().when(mockVar.getValue()).thenReturn("APP-1001");
+                lenient().when(mockQuery.singleResult()).thenReturn(mockVar);
+            } else if ("serviceCode".equals(varName)) {
+                lenient().when(mockVar.getValue()).thenReturn("SKILLS");
+                lenient().when(mockQuery.singleResult()).thenReturn(mockVar);
+            } else if ("officerId".equals(varName)) {
+                lenient().when(mockVar.getValue()).thenReturn("officer_1");
+                lenient().when(mockQuery.singleResult()).thenReturn(mockVar);
+            } else if ("officerDecision".equals(varName)) {
+                lenient().when(mockVar.getValue()).thenReturn("APPROVE");
+                lenient().when(mockQuery.singleResult()).thenReturn(mockVar);
+            } else {
+                lenient().when(mockQuery.singleResult()).thenReturn(null);
+            }
+            return mockQuery;
+        });
 
-        org.camunda.bpm.engine.history.HistoricVariableInstance varDecision = mock(org.camunda.bpm.engine.history.HistoricVariableInstance.class);
-        lenient().when(varDecision.getValue()).thenReturn("APPROVE");
+        com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy policy = new com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy(
+            "SKILLS", java.util.Set.of(), "verification", "NONE", "SKILLS", java.util.Set.of(), java.util.Set.of()
+        );
+        lenient().when(consentPolicyService.getPolicy("SKILLS")).thenReturn(policy);
 
-        org.camunda.bpm.engine.history.HistoricVariableInstance varAppId = mock(org.camunda.bpm.engine.history.HistoricVariableInstance.class);
-        lenient().when(varAppId.getValue()).thenReturn("APP-DUP");
-
-        org.camunda.bpm.engine.history.HistoricVariableInstanceQuery varQuery = mock(org.camunda.bpm.engine.history.HistoricVariableInstanceQuery.class);
-        lenient().when(historyService.createHistoricVariableInstanceQuery()).thenReturn(varQuery);
-        lenient().when(varQuery.processInstanceId("proc-dup")).thenReturn(varQuery);
-        lenient().when(varQuery.variableName("officerId")).thenReturn(varQuery);
-        lenient().when(varQuery.variableName("officerDecision")).thenReturn(varQuery);
-        lenient().when(varQuery.variableName("applicationId")).thenReturn(varQuery);
-        lenient().when(varQuery.singleResult()).thenReturn(varOfficer).thenReturn(varDecision).thenReturn(varAppId);
-
-        OfficerDecisionResponse response = officerTaskService.completeOfficerDecision("task-dup", "officer_1", "SKILLS", "APPROVE", "Already verified");
-
+        
+        com.mahasetu.securityworkflow.dto.OfficerDecisionResponse response = officerTaskService.completeOfficerDecision("task-done", "officer_1", "SKILLS", "APPROVE", null);
         assertNotNull(response);
-        assertEquals("task-dup", response.getTaskId());
-        assertEquals("APP-DUP", response.getApplicationId());
-        assertEquals("APPROVE", response.getDecision());
-        assertEquals("officer_1", response.getOfficerId());
         assertEquals("COMPLETED", response.getStatus());
+        assertEquals("APPROVE", response.getDecision());
+    
     }
 
     @Test

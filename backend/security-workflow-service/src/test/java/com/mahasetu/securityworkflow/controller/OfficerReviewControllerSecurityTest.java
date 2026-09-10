@@ -96,6 +96,62 @@ public class OfficerReviewControllerSecurityTest {
                 .andExpect(status().isForbidden());
     }
 
+
+    @Test
+    void testSubmitDecision_ValidPreferredUsername_ExtractsCorrectly() throws Exception {
+        OfficerDecisionResponse response = new OfficerDecisionResponse(
+                "task-123", "APP-1", "APPROVE", "officer123", null, LocalDateTime.now(), "COMPLETED"
+        );
+        when(officerTaskService.completeOfficerDecision(eq("task-123"), eq("officer123"), eq("SKILLS"), eq("APPROVE"), any()))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/officer/reviews/task-123/decision")
+                .with(jwt()
+                        .authorities(new SimpleGrantedAuthority("ROLE_OFFICER"))
+                        .jwt(j -> j.claim("department", "SKILLS").claim("preferred_username", "officer123")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"decision\": \"APPROVE\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void testSubmitDecision_EmptyPreferredUsernameValidFallback_ExtractsCorrectly() throws Exception {
+        OfficerDecisionResponse response = new OfficerDecisionResponse(
+                "task-123", "APP-1", "APPROVE", "fallbackUser", null, LocalDateTime.now(), "COMPLETED"
+        );
+        when(officerTaskService.completeOfficerDecision(eq("task-123"), eq("fallbackUser"), eq("SKILLS"), eq("APPROVE"), any()))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/officer/reviews/task-123/decision")
+                .with(jwt()
+                        .authorities(new SimpleGrantedAuthority("ROLE_OFFICER"))
+                        .jwt(j -> j.claim("department", "SKILLS")
+                                .claim("preferred_username", "")
+                                .subject("fallbackUser")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"decision\": \"APPROVE\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void testSubmitDecision_WhitespacePreferredUsernameValidFallback_ExtractsCorrectly() throws Exception {
+        OfficerDecisionResponse response = new OfficerDecisionResponse(
+                "task-123", "APP-1", "APPROVE", "fallbackUser", null, LocalDateTime.now(), "COMPLETED"
+        );
+        when(officerTaskService.completeOfficerDecision(eq("task-123"), eq("fallbackUser"), eq("SKILLS"), eq("APPROVE"), any()))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/officer/reviews/task-123/decision")
+                .with(jwt()
+                        .authorities(new SimpleGrantedAuthority("ROLE_OFFICER"))
+                        .jwt(j -> j.claim("department", "SKILLS")
+                                .claim("preferred_username", "   ")
+                                .subject("fallbackUser")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"decision\": \"APPROVE\"}"))
+                .andExpect(status().isOk());
+    }
+
     @Test
     void testSubmitDecision_OfficerRole_Allowed() throws Exception {
         OfficerDecisionResponse response = new OfficerDecisionResponse(
