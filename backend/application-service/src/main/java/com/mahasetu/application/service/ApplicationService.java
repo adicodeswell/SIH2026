@@ -127,7 +127,12 @@ public class ApplicationService {
             return mapToResponse(application);
         }
 
-        validateWorkflowTransition(oldStatus, newStatus);
+        try {
+            validateWorkflowTransition(oldStatus, newStatus);
+        } catch (ValidationException e) {
+            log.warn("Ignoring invalid or delayed workflow status transition from {} to {} for application {}", oldStatus, newStatus, applicationNumber);
+            return mapToResponse(application);
+        }
 
         application.setStatus(newStatus);
 

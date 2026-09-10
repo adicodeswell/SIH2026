@@ -85,7 +85,7 @@ class OfficerTaskServiceTest {
                 "serviceCode", "SKILL_BENEFIT"
         ));
 
-        List<OfficerReviewTaskResponse> tasks = officerTaskService.getPendingOfficerTasks();
+        List<OfficerReviewTaskResponse> tasks = officerTaskService.getPendingOfficerTasks("SKILLS");
 
         assertEquals(1, tasks.size());
         OfficerReviewTaskResponse response = tasks.get(0);
@@ -321,5 +321,90 @@ class OfficerTaskServiceTest {
 
         assertThrows(InvalidTaskOperationException.class, () ->
                 officerTaskService.claimTask("task-303", "officer_me", "SKILLS"));
+    }
+
+    @Test
+    void testGetPendingOfficerTasks_FiltersByDepartment() {
+        Task mockTask1 = mock(Task.class);
+        lenient().when(mockTask1.getId()).thenReturn("task-101");
+        lenient().when(mockTask1.getName()).thenReturn("Officer Review");
+        lenient().when(mockTask1.getProcessInstanceId()).thenReturn("proc-505");
+        lenient().when(mockTask1.getCreateTime()).thenReturn(new Date());
+
+        Task mockTask2 = mock(Task.class);
+        lenient().when(mockTask2.getId()).thenReturn("task-102");
+        lenient().when(mockTask2.getName()).thenReturn("Officer Review");
+        lenient().when(mockTask2.getProcessInstanceId()).thenReturn("proc-506");
+        lenient().when(mockTask2.getCreateTime()).thenReturn(new Date());
+
+        lenient().when(taskService.createTaskQuery()).thenReturn(taskQuery);
+        lenient().when(taskQuery.taskDefinitionKey("UserTask_OfficerReview")).thenReturn(taskQuery);
+        lenient().when(taskQuery.active()).thenReturn(taskQuery);
+        lenient().when(taskQuery.orderByTaskCreateTime()).thenReturn(taskQuery);
+        lenient().when(taskQuery.desc()).thenReturn(taskQuery);
+        lenient().when(taskQuery.list()).thenReturn(List.of(mockTask1, mockTask2));
+
+        lenient().when(taskService.getVariables("task-101")).thenReturn(Map.of(
+                "applicationId", "APP-101",
+                "citizenId", "CIT-101",
+                "serviceCode", "SKILL_BENEFIT"
+        ));
+        lenient().when(taskService.getVariables("task-102")).thenReturn(Map.of(
+                "applicationId", "APP-102",
+                "citizenId", "CIT-102",
+                "serviceCode", "HEALTH_BENEFIT"
+        ));
+
+        com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy healthPolicy = new com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy(
+            "HEALTH_BENEFIT", java.util.Collections.emptySet(), "", "", "HEALTH", java.util.Collections.emptySet(), java.util.Collections.emptySet()
+        );
+        lenient().when(consentPolicyService.getPolicy("HEALTH_BENEFIT")).thenReturn(healthPolicy);
+
+        List<OfficerReviewTaskResponse> tasks = officerTaskService.getPendingOfficerTasks("HEALTH");
+
+        assertEquals(1, tasks.size());
+        assertEquals("task-102", tasks.get(0).getTaskId());
+    }
+
+    @Test
+    void testGetOfficerTaskById_AuthorizedDepartment_ReturnsTask() {
+        Task mockTask = mock(Task.class);
+        lenient().when(mockTask.getId()).thenReturn("task-101");
+        lenient().when(mockTask.getTaskDefinitionKey()).thenReturn("UserTask_OfficerReview");
+        lenient().when(taskService.createTaskQuery()).thenReturn(taskQuery);
+        lenient().when(taskQuery.taskId("task-101")).thenReturn(taskQuery);
+        lenient().when(taskQuery.active()).thenReturn(taskQuery);
+        lenient().when(taskQuery.singleResult()).thenReturn(mockTask);
+
+        lenient().when(taskService.getVariables("task-101")).thenReturn(Map.of(
+                "applicationId", "APP-101",
+                "citizenId", "CIT-101",
+                "serviceCode", "SKILL_BENEFIT"
+        ));
+
+        OfficerReviewTaskResponse response = officerTaskService.getOfficerTaskById("task-101", "SKILLS");
+        assertNotNull(response);
+        assertEquals("task-101", response.getTaskId());
+    }
+
+    @Test
+    void testGetOfficerTaskById_UnauthorizedDepartment_ThrowsAccessDenied() {
+        Task mockTask = mock(Task.class);
+        lenient().when(mockTask.getId()).thenReturn("task-101");
+        lenient().when(mockTask.getTaskDefinitionKey()).thenReturn("UserTask_OfficerReview");
+        lenient().when(taskService.createTaskQuery()).thenReturn(taskQuery);
+        lenient().when(taskQuery.taskId("task-101")).thenReturn(taskQuery);
+        lenient().when(taskQuery.active()).thenReturn(taskQuery);
+        lenient().when(taskQuery.singleResult()).thenReturn(mockTask);
+
+        lenient().when(taskService.getVariables("task-101")).thenReturn(Map.of(
+                "applicationId", "APP-101",
+                "citizenId", "CIT-101",
+                "serviceCode", "SKILL_BENEFIT"
+        ));
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class, () -> {
+            officerTaskService.getOfficerTaskById("task-101", "HEALTH");
+        });
     }
 }

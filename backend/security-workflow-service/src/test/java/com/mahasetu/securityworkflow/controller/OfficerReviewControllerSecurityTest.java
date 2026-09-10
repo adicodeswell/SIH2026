@@ -65,10 +65,11 @@ public class OfficerReviewControllerSecurityTest {
                 "task-123", "Officer Review", "APP-1", "proc-1",
                 "CIT-1", "SRV-EDU", new Date(), "OFFICER", null, "PENDING_REVIEW"
         );
-        when(officerTaskService.getPendingOfficerTasks()).thenReturn(List.of(task));
+        when(officerTaskService.getPendingOfficerTasks(any())).thenReturn(List.of(task));
 
         mockMvc.perform(get("/api/v1/officer/reviews")
-                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_OFFICER"))))
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_OFFICER"))
+                           .jwt(j -> j.claim("department", "EDU"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].taskId").value("task-123"))
                 .andExpect(jsonPath("$[0].applicationId").value("APP-1"));
@@ -76,10 +77,11 @@ public class OfficerReviewControllerSecurityTest {
 
     @Test
     void testGetPendingReviews_AdminRole_ReturnsOk() throws Exception {
-        when(officerTaskService.getPendingOfficerTasks()).thenReturn(List.of());
+        when(officerTaskService.getPendingOfficerTasks(any())).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/officer/reviews")
-                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                           .jwt(j -> j.claim("department", "EDU"))))
                 .andExpect(status().isOk());
     }
 

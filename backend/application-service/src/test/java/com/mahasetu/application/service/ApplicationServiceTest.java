@@ -211,6 +211,8 @@ public class ApplicationServiceTest {
 
         when(applicationRepository.findByApplicationNumber("MH-2026-000001")).thenReturn(Optional.of(existingApp));
 
-        assertThrows(ValidationException.class, () -> applicationService.applyWorkflowStatusCallback("MH-2026-000001", req));
+        ApplicationResponse response = applicationService.applyWorkflowStatusCallback("MH-2026-000001", req);
+        assertEquals(ApplicationStatus.APPROVED, response.getStatus());
+        verify(applicationRepository, never()).save(any(Application.class));
     }
 }

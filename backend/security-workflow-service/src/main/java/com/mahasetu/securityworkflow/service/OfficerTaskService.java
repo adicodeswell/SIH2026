@@ -48,8 +48,8 @@ public class OfficerTaskService {
     /**
      * Lists all pending, active officer review tasks in Camunda.
      */
-    public List<OfficerReviewTaskResponse> getPendingOfficerTasks() {
-        log.info("Querying active officer review tasks");
+    public List<OfficerReviewTaskResponse> getPendingOfficerTasks(String officerDepartment) {
+        log.info("Querying active officer review tasks for department {}", officerDepartment);
         List<Task> tasks = taskService.createTaskQuery()
                 .taskDefinitionKey(OFFICER_TASK_DEFINITION_KEY)
                 .active()
@@ -59,17 +59,40 @@ public class OfficerTaskService {
 
         List<OfficerReviewTaskResponse> responses = new ArrayList<>();
         for (Task task : tasks) {
-            responses.add(mapToResponse(task));
+            try {
+                TaskContext ctx = resolveTaskContext(task.getId());
+                String applicationDepartment = ctx.policy().getRequestingDepartmentId();
+                if (applicationDepartment != null) {
+                    String authorizedDepartment = applicationDepartment.trim().toUpperCase(java.util.Locale.ROOT);
+                    if (authorizedDepartment.equals(officerDepartment != null ? officerDepartment.trim().toUpperCase(java.util.Locale.ROOT) : null)) {
+                        responses.add(mapToResponse(task));
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Skipping task {} due to context resolution error: {}", task.getId(), e.getMessage());
+            }
         }
-        log.info("Found {} pending officer review tasks", responses.size());
+        log.info("Found {} pending officer review tasks for department {}", responses.size(), officerDepartment);
         return responses;
     }
 
     /**
      * Retrieves a specific officer review task by its Camunda task ID.
      */
-    public OfficerReviewTaskResponse getOfficerTaskById(String taskId) {
+    public OfficerReviewTaskResponse getOfficerTaskById(String taskId, String officerDepartment) {
         Task task = findActiveOfficerTaskOrThrow(taskId);
+
+        TaskContext ctx = resolveTaskContext(taskId);
+        String applicationDepartment = ctx.policy().getRequestingDepartmentId();
+        if (applicationDepartment == null || applicationDepartment.trim().isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("Application department is not configured");
+        }
+
+        String authorizedDepartment = applicationDepartment.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!authorizedDepartment.equals(officerDepartment != null ? officerDepartment.trim().toUpperCase(java.util.Locale.ROOT) : null)) {
+            throw new org.springframework.security.access.AccessDeniedException("Officer is not authorized");
+        }
+
         return mapToResponse(task);
     }
 
