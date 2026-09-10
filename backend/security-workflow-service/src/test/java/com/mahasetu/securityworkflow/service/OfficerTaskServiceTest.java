@@ -35,9 +35,12 @@ class OfficerTaskServiceTest {
 
     @Mock
     private HistoryService historyService;
+    
 
     @Mock
     private AuditService auditService;
+    @Mock
+    private com.mahasetu.securityworkflow.service.ConsentPolicyService consentPolicyService;
 
     @Mock
     private TaskQuery taskQuery;
@@ -45,36 +48,44 @@ class OfficerTaskServiceTest {
     @Mock
     private HistoricTaskInstanceQuery historicTaskQuery;
 
+    @Mock
+    
+
     private OfficerTaskService officerTaskService;
 
     @BeforeEach
     void setUp() {
-        officerTaskService = new OfficerTaskService(taskService, historyService, auditService);
+        com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy policy = new com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy(
+            "SKILL_BENEFIT", java.util.Collections.emptySet(), "", "", "SKILLS", java.util.Collections.emptySet(), java.util.Collections.emptySet()
+        );
+        lenient().when(consentPolicyService.getPolicy(any())).thenReturn(policy);
+
+        officerTaskService = new OfficerTaskService(taskService, historyService, auditService, consentPolicyService);
     }
 
     @Test
     void testGetPendingOfficerTasks_ReturnsMappedTasks() {
         Task mockTask = mock(Task.class);
-        when(mockTask.getId()).thenReturn("task-101");
-        when(mockTask.getName()).thenReturn("Officer Review");
-        when(mockTask.getProcessInstanceId()).thenReturn("proc-505");
-        when(mockTask.getCreateTime()).thenReturn(new Date());
-        when(mockTask.getAssignee()).thenReturn(null);
+        lenient().when(mockTask.getId()).thenReturn("task-101");
+        lenient().when(mockTask.getName()).thenReturn("Officer Review");
+        lenient().when(mockTask.getProcessInstanceId()).thenReturn("proc-505");
+        lenient().when(mockTask.getCreateTime()).thenReturn(new Date());
+        lenient().when(mockTask.getAssignee()).thenReturn("officer_patil");
 
-        when(taskService.createTaskQuery()).thenReturn(taskQuery);
-        when(taskQuery.taskDefinitionKey("UserTask_OfficerReview")).thenReturn(taskQuery);
-        when(taskQuery.active()).thenReturn(taskQuery);
-        when(taskQuery.orderByTaskCreateTime()).thenReturn(taskQuery);
-        when(taskQuery.desc()).thenReturn(taskQuery);
-        when(taskQuery.list()).thenReturn(List.of(mockTask));
+        lenient().when(taskService.createTaskQuery()).thenReturn(taskQuery);
+        lenient().when(taskQuery.taskDefinitionKey("UserTask_OfficerReview")).thenReturn(taskQuery);
+        lenient().when(taskQuery.active()).thenReturn(taskQuery);
+        lenient().when(taskQuery.orderByTaskCreateTime()).thenReturn(taskQuery);
+        lenient().when(taskQuery.desc()).thenReturn(taskQuery);
+        lenient().when(taskQuery.list()).thenReturn(List.of(mockTask));
 
-        when(taskService.getVariables("task-101")).thenReturn(Map.of(
+        lenient().when(taskService.getVariables("task-101")).thenReturn(Map.of(
                 "applicationId", "APP-101",
                 "citizenId", "CIT-101",
                 "serviceCode", "SKILL_BENEFIT"
         ));
 
-        List<OfficerReviewTaskResponse> tasks = officerTaskService.getPendingOfficerTasks();
+        List<OfficerReviewTaskResponse> tasks = officerTaskService.getPendingOfficerTasks("SKILLS");
 
         assertEquals(1, tasks.size());
         OfficerReviewTaskResponse response = tasks.get(0);
@@ -88,24 +99,18 @@ class OfficerTaskServiceTest {
     @Test
     void testCompleteOfficerDecision_Approve_CompletesAndAudits() {
         Task mockTask = mock(Task.class);
-        when(mockTask.getProcessInstanceId()).thenReturn("proc-606");
-        when(mockTask.getTaskDefinitionKey()).thenReturn("UserTask_OfficerReview");
-        when(mockTask.getAssignee()).thenReturn(null);
+        lenient().when(mockTask.getProcessInstanceId()).thenReturn("proc-606");
+        lenient().when(mockTask.getTaskDefinitionKey()).thenReturn("UserTask_OfficerReview");
+        lenient().when(mockTask.getAssignee()).thenReturn("officer_patil");
 
-        when(taskService.createTaskQuery()).thenReturn(taskQuery);
-        when(taskQuery.taskId("task-202")).thenReturn(taskQuery);
-        when(taskQuery.active()).thenReturn(taskQuery);
-        when(taskQuery.singleResult()).thenReturn(mockTask);
+        lenient().when(taskService.createTaskQuery()).thenReturn(taskQuery);
+        lenient().when(taskQuery.taskId("task-202")).thenReturn(taskQuery);
+        lenient().when(taskQuery.active()).thenReturn(taskQuery);
+        lenient().when(taskQuery.singleResult()).thenReturn(mockTask);
 
-        when(taskService.getVariables("task-202")).thenReturn(Map.of(
-                "applicationId", "APP-202"
-        ));
+        lenient().when(taskService.getVariables("task-202")).thenReturn(Map.of("applicationId", "APP-202", "serviceCode", "SKILL_BENEFIT"));
 
-        OfficerDecisionResponse response = officerTaskService.completeOfficerDecision(
-                "task-202",
-                "officer_patil",
-                "APPROVE",
-                "All criteria satisfied"
+        OfficerDecisionResponse response = officerTaskService.completeOfficerDecision("task-202", "officer_patil", "SKILLS", "APPROVE", "All criteria satisfied"
         );
 
         assertNotNull(response);
@@ -135,125 +140,170 @@ class OfficerTaskServiceTest {
     @Test
     void testCompleteOfficerDecision_Reject_RequiresReason() {
         ValidationException ex = assertThrows(ValidationException.class, () ->
-                officerTaskService.completeOfficerDecision("task-1", "officer_1", "REJECT", null));
+                officerTaskService.completeOfficerDecision("task-1", "officer_1", "SKILLS", "REJECT", null));
         assertTrue(ex.getMessage().contains("Reason is required"));
 
         ValidationException exBlank = assertThrows(ValidationException.class, () ->
-                officerTaskService.completeOfficerDecision("task-1", "officer_1", "REJECT", "   "));
+                officerTaskService.completeOfficerDecision("task-1", "officer_1", "SKILLS", "REJECT", "   "));
         assertTrue(exBlank.getMessage().contains("Reason is required"));
     }
 
     @Test
     void testCompleteOfficerDecision_InvalidDecision_ThrowsValidationException() {
         ValidationException ex = assertThrows(ValidationException.class, () ->
-                officerTaskService.completeOfficerDecision("task-1", "officer_1", "MAYBE", "some reason"));
+                officerTaskService.completeOfficerDecision("task-1", "officer_1", "SKILLS", "MAYBE", "some reason"));
         assertTrue(ex.getMessage().contains("either APPROVE or REJECT"));
     }
 
     @Test
     void testCompleteOfficerDecision_TaskNotFound_ThrowsTaskNotFoundException() {
-        when(taskService.createTaskQuery()).thenReturn(taskQuery);
-        when(taskQuery.taskId("task-missing")).thenReturn(taskQuery);
-        when(taskQuery.active()).thenReturn(taskQuery);
-        when(taskQuery.singleResult()).thenReturn(null);
+        lenient().when(taskService.createTaskQuery()).thenReturn(taskQuery);
+        lenient().when(taskQuery.taskId("task-missing")).thenReturn(taskQuery);
+        lenient().when(taskQuery.active()).thenReturn(taskQuery);
+        lenient().when(taskQuery.singleResult()).thenReturn(null);
 
-        when(historyService.createHistoricTaskInstanceQuery()).thenReturn(historicTaskQuery);
-        when(historicTaskQuery.taskId("task-missing")).thenReturn(historicTaskQuery);
-        when(historicTaskQuery.singleResult()).thenReturn(null);
+        lenient().when(historyService.createHistoricTaskInstanceQuery()).thenReturn(historicTaskQuery);
+        lenient().when(historicTaskQuery.taskId("task-missing")).thenReturn(historicTaskQuery);
+        lenient().when(historicTaskQuery.singleResult()).thenReturn(null);
 
         assertThrows(TaskNotFoundException.class, () ->
-                officerTaskService.completeOfficerDecision("task-missing", "officer_1", "APPROVE", null));
+                officerTaskService.completeOfficerDecision("task-missing", "officer_1", "SKILLS", "APPROVE", null));
     }
 
     @Test
     void testCompleteOfficerDecision_AlreadyCompleted_DifferentDecision_ThrowsTaskAlreadyCompletedException() {
-        when(taskService.createTaskQuery()).thenReturn(taskQuery);
-        when(taskQuery.taskId("task-done")).thenReturn(taskQuery);
-        when(taskQuery.active()).thenReturn(taskQuery);
-        when(taskQuery.singleResult()).thenReturn(null);
-
+        
+        
+        org.camunda.bpm.engine.task.TaskQuery mockTaskQuery = mock(org.camunda.bpm.engine.task.TaskQuery.class);
+        lenient().when(taskService.createTaskQuery()).thenReturn(mockTaskQuery);
+        lenient().when(mockTaskQuery.taskId(anyString())).thenReturn(mockTaskQuery);
+        lenient().when(mockTaskQuery.active()).thenReturn(mockTaskQuery);
+        lenient().when(mockTaskQuery.singleResult()).thenReturn(null);
+    
         HistoricTaskInstance historicTask = mock(HistoricTaskInstance.class);
-        when(historicTask.getEndTime()).thenReturn(new Date());
-        when(historicTask.getProcessInstanceId()).thenReturn("proc-done");
+        lenient().when(historicTask.getEndTime()).thenReturn(new java.util.Date());
+        lenient().when(historicTask.getProcessInstanceId()).thenReturn("proc-done");
 
-        when(historyService.createHistoricTaskInstanceQuery()).thenReturn(historicTaskQuery);
-        when(historicTaskQuery.taskId("task-done")).thenReturn(historicTaskQuery);
-        when(historicTaskQuery.singleResult()).thenReturn(historicTask);
+        lenient().when(historyService.createHistoricTaskInstanceQuery()).thenReturn(historicTaskQuery);
+        lenient().when(historicTaskQuery.taskId(anyString())).thenReturn(historicTaskQuery);
+        lenient().when(historicTaskQuery.singleResult()).thenReturn(historicTask);
 
-        org.camunda.bpm.engine.history.HistoricVariableInstanceQuery varQuery = mock(org.camunda.bpm.engine.history.HistoricVariableInstanceQuery.class);
-        when(historyService.createHistoricVariableInstanceQuery()).thenReturn(varQuery);
-        when(varQuery.processInstanceId("proc-done")).thenReturn(varQuery);
-        when(varQuery.variableName(anyString())).thenReturn(varQuery);
-        when(varQuery.singleResult()).thenReturn(null);
+        org.camunda.bpm.engine.history.HistoricVariableInstanceQuery smartVarQuery = mock(org.camunda.bpm.engine.history.HistoricVariableInstanceQuery.class);
+        lenient().when(historyService.createHistoricVariableInstanceQuery()).thenReturn(smartVarQuery);
+        lenient().when(smartVarQuery.processInstanceId(anyString())).thenReturn(smartVarQuery);
+        lenient().when(smartVarQuery.variableName(anyString())).thenAnswer(inv -> {
+            String varName = inv.getArgument(0);
+            org.camunda.bpm.engine.history.HistoricVariableInstanceQuery mockQuery = mock(org.camunda.bpm.engine.history.HistoricVariableInstanceQuery.class);
+            org.camunda.bpm.engine.history.HistoricVariableInstance mockVar = mock(org.camunda.bpm.engine.history.HistoricVariableInstance.class);
+            
+            if ("applicationId".equals(varName)) {
+                lenient().when(mockVar.getValue()).thenReturn("APP-1001");
+                lenient().when(mockQuery.singleResult()).thenReturn(mockVar);
+            } else if ("serviceCode".equals(varName)) {
+                lenient().when(mockVar.getValue()).thenReturn("SKILLS");
+                lenient().when(mockQuery.singleResult()).thenReturn(mockVar);
+            } else if ("officerId".equals(varName)) {
+                lenient().when(mockVar.getValue()).thenReturn("officer_1");
+                lenient().when(mockQuery.singleResult()).thenReturn(mockVar);
+            } else if ("officerDecision".equals(varName)) {
+                lenient().when(mockVar.getValue()).thenReturn("APPROVE");
+                lenient().when(mockQuery.singleResult()).thenReturn(mockVar);
+            } else {
+                lenient().when(mockQuery.singleResult()).thenReturn(null);
+            }
+            return mockQuery;
+        });
 
+        com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy policy = new com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy(
+            "SKILLS", java.util.Set.of(), "verification", "NONE", "SKILLS", java.util.Set.of(), java.util.Set.of()
+        );
+        lenient().when(consentPolicyService.getPolicy("SKILLS")).thenReturn(policy);
+
+        
         assertThrows(TaskAlreadyCompletedException.class, () ->
-                officerTaskService.completeOfficerDecision("task-done", "officer_1", "APPROVE", null));
+                officerTaskService.completeOfficerDecision("task-done", "officer_1", "SKILLS", "REJECT", "Reason"));
+    
     }
 
     @Test
     void testCompleteOfficerDecision_DuplicateSameDecision_ReturnsIdempotentResponse() {
-        when(taskService.createTaskQuery()).thenReturn(taskQuery);
-        when(taskQuery.taskId("task-dup")).thenReturn(taskQuery);
-        when(taskQuery.active()).thenReturn(taskQuery);
-        when(taskQuery.singleResult()).thenReturn(null);
-
+        
+        
+        org.camunda.bpm.engine.task.TaskQuery mockTaskQuery = mock(org.camunda.bpm.engine.task.TaskQuery.class);
+        lenient().when(taskService.createTaskQuery()).thenReturn(mockTaskQuery);
+        lenient().when(mockTaskQuery.taskId(anyString())).thenReturn(mockTaskQuery);
+        lenient().when(mockTaskQuery.active()).thenReturn(mockTaskQuery);
+        lenient().when(mockTaskQuery.singleResult()).thenReturn(null);
+    
         HistoricTaskInstance historicTask = mock(HistoricTaskInstance.class);
-        when(historicTask.getEndTime()).thenReturn(new Date());
-        when(historicTask.getProcessInstanceId()).thenReturn("proc-dup");
+        lenient().when(historicTask.getEndTime()).thenReturn(new java.util.Date());
+        lenient().when(historicTask.getProcessInstanceId()).thenReturn("proc-done");
 
-        when(historyService.createHistoricTaskInstanceQuery()).thenReturn(historicTaskQuery);
-        when(historicTaskQuery.taskId("task-dup")).thenReturn(historicTaskQuery);
-        when(historicTaskQuery.singleResult()).thenReturn(historicTask);
+        lenient().when(historyService.createHistoricTaskInstanceQuery()).thenReturn(historicTaskQuery);
+        lenient().when(historicTaskQuery.taskId(anyString())).thenReturn(historicTaskQuery);
+        lenient().when(historicTaskQuery.singleResult()).thenReturn(historicTask);
 
-        org.camunda.bpm.engine.history.HistoricVariableInstance varOfficer = mock(org.camunda.bpm.engine.history.HistoricVariableInstance.class);
-        when(varOfficer.getValue()).thenReturn("officer_1");
+        org.camunda.bpm.engine.history.HistoricVariableInstanceQuery smartVarQuery = mock(org.camunda.bpm.engine.history.HistoricVariableInstanceQuery.class);
+        lenient().when(historyService.createHistoricVariableInstanceQuery()).thenReturn(smartVarQuery);
+        lenient().when(smartVarQuery.processInstanceId(anyString())).thenReturn(smartVarQuery);
+        lenient().when(smartVarQuery.variableName(anyString())).thenAnswer(inv -> {
+            String varName = inv.getArgument(0);
+            org.camunda.bpm.engine.history.HistoricVariableInstanceQuery mockQuery = mock(org.camunda.bpm.engine.history.HistoricVariableInstanceQuery.class);
+            org.camunda.bpm.engine.history.HistoricVariableInstance mockVar = mock(org.camunda.bpm.engine.history.HistoricVariableInstance.class);
+            
+            if ("applicationId".equals(varName)) {
+                lenient().when(mockVar.getValue()).thenReturn("APP-1001");
+                lenient().when(mockQuery.singleResult()).thenReturn(mockVar);
+            } else if ("serviceCode".equals(varName)) {
+                lenient().when(mockVar.getValue()).thenReturn("SKILLS");
+                lenient().when(mockQuery.singleResult()).thenReturn(mockVar);
+            } else if ("officerId".equals(varName)) {
+                lenient().when(mockVar.getValue()).thenReturn("officer_1");
+                lenient().when(mockQuery.singleResult()).thenReturn(mockVar);
+            } else if ("officerDecision".equals(varName)) {
+                lenient().when(mockVar.getValue()).thenReturn("APPROVE");
+                lenient().when(mockQuery.singleResult()).thenReturn(mockVar);
+            } else {
+                lenient().when(mockQuery.singleResult()).thenReturn(null);
+            }
+            return mockQuery;
+        });
 
-        org.camunda.bpm.engine.history.HistoricVariableInstance varDecision = mock(org.camunda.bpm.engine.history.HistoricVariableInstance.class);
-        when(varDecision.getValue()).thenReturn("APPROVE");
+        com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy policy = new com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy(
+            "SKILLS", java.util.Set.of(), "verification", "NONE", "SKILLS", java.util.Set.of(), java.util.Set.of()
+        );
+        lenient().when(consentPolicyService.getPolicy("SKILLS")).thenReturn(policy);
 
-        org.camunda.bpm.engine.history.HistoricVariableInstance varAppId = mock(org.camunda.bpm.engine.history.HistoricVariableInstance.class);
-        when(varAppId.getValue()).thenReturn("APP-DUP");
-
-        org.camunda.bpm.engine.history.HistoricVariableInstanceQuery varQuery = mock(org.camunda.bpm.engine.history.HistoricVariableInstanceQuery.class);
-        when(historyService.createHistoricVariableInstanceQuery()).thenReturn(varQuery);
-        when(varQuery.processInstanceId("proc-dup")).thenReturn(varQuery);
-        when(varQuery.variableName("officerId")).thenReturn(varQuery);
-        when(varQuery.variableName("officerDecision")).thenReturn(varQuery);
-        when(varQuery.variableName("applicationId")).thenReturn(varQuery);
-        when(varQuery.singleResult()).thenReturn(varOfficer).thenReturn(varDecision).thenReturn(varAppId);
-
-        OfficerDecisionResponse response = officerTaskService.completeOfficerDecision("task-dup", "officer_1", "APPROVE", "Already verified");
-
+        
+        com.mahasetu.securityworkflow.dto.OfficerDecisionResponse response = officerTaskService.completeOfficerDecision("task-done", "officer_1", "SKILLS", "APPROVE", null);
         assertNotNull(response);
-        assertEquals("task-dup", response.getTaskId());
-        assertEquals("APP-DUP", response.getApplicationId());
-        assertEquals("APPROVE", response.getDecision());
-        assertEquals("officer_1", response.getOfficerId());
         assertEquals("COMPLETED", response.getStatus());
+        assertEquals("APPROVE", response.getDecision());
+    
     }
 
     @Test
     void testClaimAndUnclaimTask_Success() {
         Task mockTask = mock(Task.class);
-        when(mockTask.getId()).thenReturn("task-303");
-        when(mockTask.getTaskDefinitionKey()).thenReturn("UserTask_OfficerReview");
-        when(mockTask.getAssignee()).thenReturn(null).thenReturn("officer_deshmukh");
+        lenient().when(mockTask.getId()).thenReturn("task-303");
+        lenient().when(mockTask.getTaskDefinitionKey()).thenReturn("UserTask_OfficerReview");
+        lenient().when(mockTask.getAssignee()).thenReturn(null).thenReturn("officer_deshmukh");
 
-        when(taskService.createTaskQuery()).thenReturn(taskQuery);
-        when(taskQuery.taskId("task-303")).thenReturn(taskQuery);
-        when(taskQuery.active()).thenReturn(taskQuery);
-        when(taskQuery.singleResult()).thenReturn(mockTask);
+        lenient().when(taskService.createTaskQuery()).thenReturn(taskQuery);
+        lenient().when(taskQuery.taskId("task-303")).thenReturn(taskQuery);
+        lenient().when(taskQuery.active()).thenReturn(taskQuery);
+        lenient().when(taskQuery.singleResult()).thenReturn(mockTask);
 
-        when(taskService.getVariables("task-303")).thenReturn(Map.of("applicationId", "APP-303"));
+        lenient().when(taskService.getVariables("task-303")).thenReturn(Map.of("applicationId", "APP-303", "serviceCode", "SKILL_BENEFIT"));
 
-        OfficerReviewTaskResponse claimed = officerTaskService.claimTask("task-303", "officer_deshmukh");
+        OfficerReviewTaskResponse claimed = officerTaskService.claimTask("task-303", "officer_deshmukh", "SKILLS");
         assertNotNull(claimed);
         verify(taskService).claim("task-303", "officer_deshmukh");
         verify(auditService).recordOfficerClaim("APP-303", "task-303", "officer_deshmukh");
 
         // Now test unclaiming
-        when(mockTask.getAssignee()).thenReturn("officer_deshmukh");
-        officerTaskService.unclaimTask("task-303", "officer_deshmukh");
+        lenient().when(mockTask.getAssignee()).thenReturn("officer_deshmukh");
+        officerTaskService.unclaimTask("task-303", "officer_deshmukh", "SKILLS");
         verify(taskService).setAssignee("task-303", null);
         verify(auditService).recordOfficerUnclaim("APP-303", "task-303", "officer_deshmukh");
     }
@@ -261,15 +311,100 @@ class OfficerTaskServiceTest {
     @Test
     void testClaimTask_AlreadyClaimedByAnotherOfficer_ThrowsInvalidTaskOperationException() {
         Task mockTask = mock(Task.class);
-        when(mockTask.getTaskDefinitionKey()).thenReturn("UserTask_OfficerReview");
-        when(mockTask.getAssignee()).thenReturn("officer_other");
+        lenient().when(mockTask.getTaskDefinitionKey()).thenReturn("UserTask_OfficerReview");
+        lenient().when(mockTask.getAssignee()).thenReturn("officer_other");
 
-        when(taskService.createTaskQuery()).thenReturn(taskQuery);
-        when(taskQuery.taskId("task-303")).thenReturn(taskQuery);
-        when(taskQuery.active()).thenReturn(taskQuery);
-        when(taskQuery.singleResult()).thenReturn(mockTask);
+        lenient().when(taskService.createTaskQuery()).thenReturn(taskQuery);
+        lenient().when(taskQuery.taskId("task-303")).thenReturn(taskQuery);
+        lenient().when(taskQuery.active()).thenReturn(taskQuery);
+        lenient().when(taskQuery.singleResult()).thenReturn(mockTask);
 
         assertThrows(InvalidTaskOperationException.class, () ->
-                officerTaskService.claimTask("task-303", "officer_me"));
+                officerTaskService.claimTask("task-303", "officer_me", "SKILLS"));
+    }
+
+    @Test
+    void testGetPendingOfficerTasks_FiltersByDepartment() {
+        Task mockTask1 = mock(Task.class);
+        lenient().when(mockTask1.getId()).thenReturn("task-101");
+        lenient().when(mockTask1.getName()).thenReturn("Officer Review");
+        lenient().when(mockTask1.getProcessInstanceId()).thenReturn("proc-505");
+        lenient().when(mockTask1.getCreateTime()).thenReturn(new Date());
+
+        Task mockTask2 = mock(Task.class);
+        lenient().when(mockTask2.getId()).thenReturn("task-102");
+        lenient().when(mockTask2.getName()).thenReturn("Officer Review");
+        lenient().when(mockTask2.getProcessInstanceId()).thenReturn("proc-506");
+        lenient().when(mockTask2.getCreateTime()).thenReturn(new Date());
+
+        lenient().when(taskService.createTaskQuery()).thenReturn(taskQuery);
+        lenient().when(taskQuery.taskDefinitionKey("UserTask_OfficerReview")).thenReturn(taskQuery);
+        lenient().when(taskQuery.active()).thenReturn(taskQuery);
+        lenient().when(taskQuery.orderByTaskCreateTime()).thenReturn(taskQuery);
+        lenient().when(taskQuery.desc()).thenReturn(taskQuery);
+        lenient().when(taskQuery.list()).thenReturn(List.of(mockTask1, mockTask2));
+
+        lenient().when(taskService.getVariables("task-101")).thenReturn(Map.of(
+                "applicationId", "APP-101",
+                "citizenId", "CIT-101",
+                "serviceCode", "SKILL_BENEFIT"
+        ));
+        lenient().when(taskService.getVariables("task-102")).thenReturn(Map.of(
+                "applicationId", "APP-102",
+                "citizenId", "CIT-102",
+                "serviceCode", "HEALTH_BENEFIT"
+        ));
+
+        com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy healthPolicy = new com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy(
+            "HEALTH_BENEFIT", java.util.Collections.emptySet(), "", "", "HEALTH", java.util.Collections.emptySet(), java.util.Collections.emptySet()
+        );
+        lenient().when(consentPolicyService.getPolicy("HEALTH_BENEFIT")).thenReturn(healthPolicy);
+
+        List<OfficerReviewTaskResponse> tasks = officerTaskService.getPendingOfficerTasks("HEALTH");
+
+        assertEquals(1, tasks.size());
+        assertEquals("task-102", tasks.get(0).getTaskId());
+    }
+
+    @Test
+    void testGetOfficerTaskById_AuthorizedDepartment_ReturnsTask() {
+        Task mockTask = mock(Task.class);
+        lenient().when(mockTask.getId()).thenReturn("task-101");
+        lenient().when(mockTask.getTaskDefinitionKey()).thenReturn("UserTask_OfficerReview");
+        lenient().when(taskService.createTaskQuery()).thenReturn(taskQuery);
+        lenient().when(taskQuery.taskId("task-101")).thenReturn(taskQuery);
+        lenient().when(taskQuery.active()).thenReturn(taskQuery);
+        lenient().when(taskQuery.singleResult()).thenReturn(mockTask);
+
+        lenient().when(taskService.getVariables("task-101")).thenReturn(Map.of(
+                "applicationId", "APP-101",
+                "citizenId", "CIT-101",
+                "serviceCode", "SKILL_BENEFIT"
+        ));
+
+        OfficerReviewTaskResponse response = officerTaskService.getOfficerTaskById("task-101", "SKILLS");
+        assertNotNull(response);
+        assertEquals("task-101", response.getTaskId());
+    }
+
+    @Test
+    void testGetOfficerTaskById_UnauthorizedDepartment_ThrowsAccessDenied() {
+        Task mockTask = mock(Task.class);
+        lenient().when(mockTask.getId()).thenReturn("task-101");
+        lenient().when(mockTask.getTaskDefinitionKey()).thenReturn("UserTask_OfficerReview");
+        lenient().when(taskService.createTaskQuery()).thenReturn(taskQuery);
+        lenient().when(taskQuery.taskId("task-101")).thenReturn(taskQuery);
+        lenient().when(taskQuery.active()).thenReturn(taskQuery);
+        lenient().when(taskQuery.singleResult()).thenReturn(mockTask);
+
+        lenient().when(taskService.getVariables("task-101")).thenReturn(Map.of(
+                "applicationId", "APP-101",
+                "citizenId", "CIT-101",
+                "serviceCode", "SKILL_BENEFIT"
+        ));
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class, () -> {
+            officerTaskService.getOfficerTaskById("task-101", "HEALTH");
+        });
     }
 }

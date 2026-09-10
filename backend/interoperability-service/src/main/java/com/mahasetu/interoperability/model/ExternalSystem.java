@@ -6,5 +6,6 @@ package com.mahasetu.interoperability.model;
 public enum ExternalSystem {
     EMPLOYMENT_SYSTEM,
     EDUCATION_SYSTEM,
-    HEALTH_SYSTEM
+    HEALTH_SYSTEM,
+    SKILLS_SYSTEM
 }

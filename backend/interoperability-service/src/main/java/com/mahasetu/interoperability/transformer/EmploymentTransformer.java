@@ -30,7 +30,7 @@ public class EmploymentTransformer implements DataTransformer {
             if (root.has("grad_year")) data.setGraduationYear(root.get("grad_year").asInt());
             
             if (root.has("annual_family_income")) {
-                data.setAnnualFamilyIncome(root.get("annual_family_income").asDouble());
+                data.setAnnualFamilyIncome(new java.math.BigDecimal(root.get("annual_family_income").asText()));
             }
             if (root.has("category")) {
                 data.setCategory(root.get("category").asText());

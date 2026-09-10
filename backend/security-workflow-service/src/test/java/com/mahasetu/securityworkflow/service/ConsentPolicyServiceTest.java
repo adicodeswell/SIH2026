@@ -2,8 +2,9 @@ package com.mahasetu.securityworkflow.service;
 
 import com.mahasetu.securityworkflow.config.ConsentPolicyProperties;
 import com.mahasetu.securityworkflow.dto.ConsentPolicy;
+import com.mahasetu.securityworkflow.dto.DataScope;
+import com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy;
 import com.mahasetu.securityworkflow.exception.UnsupportedServiceCodeException;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -12,55 +13,62 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ConsentPolicyServiceTest {
 
-    private ConsentPolicyService consentPolicyService;
-    private ConsentPolicyProperties properties;
-
-    @BeforeEach
-    void setUp() {
-        properties = new ConsentPolicyProperties();
-        properties.setPolicies(Map.of(
-                "SKILL_BENEFIT", new ConsentPolicy("education,employment,skills", "verification"),
-                "SCHOLARSHIP", new ConsentPolicy("education", "scholarship_verification"),
-                "SRV-EDU", new ConsentPolicy("education", "verification")
+    @Test
+    void testValidateAndInitializePolicies_ValidConfig_Succeeds() {
+        ConsentPolicyProperties props = new ConsentPolicyProperties();
+        props.setPolicies(Map.of(
+                "SKILL_BENEFIT", new ConsentPolicy("education,employment,skills", "verification", "DEPT-SKILLS", "", ""),
+                "SCHOLARSHIP", new ConsentPolicy("education", "scholarship", "DEPT-EDU", "", "")
         ));
-        consentPolicyService = new ConsentPolicyService(properties);
+
+        ConsentPolicyService service = new ConsentPolicyService(props);
+        service.validateAndInitializePolicies();
+
+        ResolvedConsentPolicy skillPolicy = service.getPolicy("SKILL_BENEFIT");
+        assertEquals("verification", skillPolicy.getPurpose());
+        assertEquals("DEPT-SKILLS", skillPolicy.getRequestingDepartmentId());
+        assertTrue(skillPolicy.getRequiredScopes().contains(DataScope.EDUCATION));
+        assertTrue(skillPolicy.getRequiredScopes().contains(DataScope.EMPLOYMENT));
+        assertTrue(skillPolicy.getRequiredScopes().contains(DataScope.SKILLS));
+
+        ResolvedConsentPolicy eduPolicy = service.getPolicy("SCHOLARSHIP");
+        assertEquals("scholarship", eduPolicy.getPurpose());
+        assertEquals("DEPT-EDU", eduPolicy.getRequestingDepartmentId());
+        assertTrue(eduPolicy.getRequiredScopes().contains(DataScope.EDUCATION));
     }
 
     @Test
-    void testGetPolicy_KnownServiceCode_ReturnsPolicy() {
-        ConsentPolicy policy = consentPolicyService.getPolicy("SKILL_BENEFIT");
-        assertNotNull(policy);
-        assertEquals("education,employment,skills", policy.getDataScope());
-        assertEquals("verification", policy.getPurpose());
+    void testValidateAndInitializePolicies_InvalidScope_ThrowsException() {
+        ConsentPolicyProperties props = new ConsentPolicyProperties();
+        props.setPolicies(Map.of(
+                "TEST", new ConsentPolicy("education,INVALID_SCOPE", "verification", "DEPT-TEST", "", "")
+        ));
+
+        ConsentPolicyService service = new ConsentPolicyService(props);
+        assertThrows(IllegalStateException.class, service::validateAndInitializePolicies);
     }
 
     @Test
-    void testGetPolicy_DifferentKnownCodes_ReturnRespectivePolicies() {
-        ConsentPolicy scholarship = consentPolicyService.getPolicy("SCHOLARSHIP");
-        assertNotNull(scholarship);
-        assertEquals("education", scholarship.getDataScope());
-        assertEquals("scholarship_verification", scholarship.getPurpose());
+    void testValidateAndInitializePolicies_MissingDepartment_ThrowsException() {
+        ConsentPolicyProperties props = new ConsentPolicyProperties();
+        props.setPolicies(Map.of(
+                "TEST", new ConsentPolicy("education", "verification", "", "", "")
+        ));
 
-        ConsentPolicy srvEdu = consentPolicyService.getPolicy("SRV-EDU");
-        assertNotNull(srvEdu);
-        assertEquals("education", srvEdu.getDataScope());
-        assertEquals("verification", srvEdu.getPurpose());
+        ConsentPolicyService service = new ConsentPolicyService(props);
+        assertThrows(IllegalStateException.class, service::validateAndInitializePolicies);
     }
 
     @Test
-    void testGetPolicy_UnknownServiceCode_ThrowsUnsupportedServiceCodeException() {
-        UnsupportedServiceCodeException exception = assertThrows(
-                UnsupportedServiceCodeException.class,
-                () -> consentPolicyService.getPolicy("UNKNOWN_SERVICE")
-        );
-        assertEquals("UNKNOWN_SERVICE", exception.getServiceCode());
-        assertTrue(exception.getMessage().contains("UNKNOWN_SERVICE"));
-    }
+    void testGetPolicy_UnknownService_ThrowsUnsupportedServiceCodeException() {
+        ConsentPolicyProperties props = new ConsentPolicyProperties();
+        props.setPolicies(Map.of(
+                "SKILL_BENEFIT", new ConsentPolicy("education", "verification", "DEPT-TEST", "", "")
+        ));
 
-    @Test
-    void testGetPolicy_NullOrEmptyCode_ThrowsUnsupportedServiceCodeException() {
-        assertThrows(UnsupportedServiceCodeException.class, () -> consentPolicyService.getPolicy(null));
-        assertThrows(UnsupportedServiceCodeException.class, () -> consentPolicyService.getPolicy(""));
-        assertThrows(UnsupportedServiceCodeException.class, () -> consentPolicyService.getPolicy("   "));
+        ConsentPolicyService service = new ConsentPolicyService(props);
+        service.validateAndInitializePolicies();
+
+        assertThrows(UnsupportedServiceCodeException.class, () -> service.getPolicy("UNKNOWN"));
     }
 }

@@ -1,6 +1,6 @@
 package com.mahasetu.securityworkflow.service.worker;
 
-import com.mahasetu.securityworkflow.dto.ConsentPolicy;
+import com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy;
 import com.mahasetu.securityworkflow.exception.UnsupportedServiceCodeException;
 import com.mahasetu.securityworkflow.service.ConsentPolicyService;
 import com.mahasetu.securityworkflow.service.ConsentService;
@@ -33,8 +33,8 @@ public class VerifyConsentWorker implements JavaDelegate {
         log.info("[CONSENT_EVENT] VerifyConsentWorker: checking consent for applicationId={}, citizenId={}, serviceCode={}",
                 applicationId, citizenId, serviceCode);
 
-        // Dynamically resolve consent policy from configuration
-        ConsentPolicy policy;
+        // Dynamically resolve strongly typed consent policy from configuration
+        ResolvedConsentPolicy policy;
         try {
             policy = consentPolicyService.getPolicy(serviceCode);
         } catch (UnsupportedServiceCodeException e) {
@@ -43,14 +43,11 @@ public class VerifyConsentWorker implements JavaDelegate {
             throw new BpmnError("UNSUPPORTED_SERVICE_CODE", "No consent policy for service code: " + serviceCode);
         }
 
-        String dataScope = policy.getDataScope();
-        String purpose = policy.getPurpose();
+        // Phase 2 secure, application-aware validation checking coverage, expiry, purpose and department
+        boolean consentValid = consentService.checkConsentContext(citizenId, applicationId, serviceCode, policy);
 
-        log.info("[CONSENT_EVENT] VerifyConsentWorker: resolved policy for serviceCode={}: dataScope={}, purpose={}",
-                serviceCode, dataScope, purpose);
-
-        boolean consentValid = consentService.checkConsent(citizenId, dataScope, purpose);
-
+        java.util.List<String> allowedScopes = policy.getRequiredScopes().stream().map(Enum::name).collect(java.util.stream.Collectors.toList());
+        execution.setVariable("allowedScopes", allowedScopes);
         execution.setVariable("consentValid", consentValid);
 
         log.info("[CONSENT_EVENT] VerifyConsentWorker: consent check result for applicationId={}: consentValid={}",

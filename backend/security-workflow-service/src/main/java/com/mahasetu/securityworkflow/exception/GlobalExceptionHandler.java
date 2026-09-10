@@ -21,60 +21,84 @@ public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(TaskNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleTaskNotFoundException(TaskNotFoundException ex, HttpServletRequest request) {
-        log.warn("Task not found: {}", ex.getMessage());
+    public ResponseEntity<ErrorResponse> handleTaskNotFoundException(
+            TaskNotFoundException ex,
+            HttpServletRequest request) {
+
+        log.warn("Task not found: {}", ex.getClass().getSimpleName());
+
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.NOT_FOUND.value(),
                 "TASK_NOT_FOUND",
-                ex.getMessage(),
+                "Task not found",
                 request.getRequestURI(),
                 null
         );
+
         return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(TaskAlreadyCompletedException.class)
-    public ResponseEntity<ErrorResponse> handleTaskAlreadyCompletedException(TaskAlreadyCompletedException ex, HttpServletRequest request) {
-        log.warn("Task already completed: {}", ex.getMessage());
+    public ResponseEntity<ErrorResponse> handleTaskAlreadyCompletedException(
+            TaskAlreadyCompletedException ex,
+            HttpServletRequest request) {
+
+        log.warn("Task already completed: {}", ex.getClass().getSimpleName());
+
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.CONFLICT.value(),
                 "TASK_ALREADY_COMPLETED",
-                ex.getMessage(),
+                "Task has already been completed",
                 request.getRequestURI(),
                 null
         );
+
         return new ResponseEntity<>(error, HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(InvalidTaskOperationException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidTaskOperationException(InvalidTaskOperationException ex, HttpServletRequest request) {
-        log.warn("Invalid task operation: {}", ex.getMessage());
+    public ResponseEntity<ErrorResponse> handleInvalidTaskOperationException(
+            InvalidTaskOperationException ex,
+            HttpServletRequest request) {
+
+        log.warn("Invalid task operation: {}", ex.getClass().getSimpleName());
+
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
                 "INVALID_TASK_OPERATION",
-                ex.getMessage(),
+                "Invalid task operation",
                 request.getRequestURI(),
                 null
         );
+
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(ValidationException.class)
-    public ResponseEntity<ErrorResponse> handleValidationException(ValidationException ex, HttpServletRequest request) {
-        log.warn("Validation error: {}", ex.getMessage());
+    public ResponseEntity<ErrorResponse> handleValidationException(
+            ValidationException ex,
+            HttpServletRequest request) {
+
+        log.warn("Validation error: {}", ex.getClass().getSimpleName());
+
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
                 "VALIDATION_ERROR",
-                ex.getMessage(),
+                "Invalid request",
                 request.getRequestURI(),
                 null
         );
+
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex, HttpServletRequest request) {
-        List<String> details = ex.getBindingResult().getFieldErrors()
+    public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(
+            MethodArgumentNotValidException ex,
+            HttpServletRequest request) {
+
+        List<String> details = ex.getBindingResult()
+                .getFieldErrors()
                 .stream()
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.toList());
@@ -86,50 +110,72 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(),
                 details
         );
+
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex, HttpServletRequest request) {
-        log.warn("Illegal argument: {}", ex.getMessage());
+    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(
+            IllegalArgumentException ex,
+            HttpServletRequest request) {
+
+        log.warn("Illegal argument: {}", ex.getClass().getSimpleName());
+
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
                 "BAD_REQUEST",
-                ex.getMessage(),
+                "Invalid request",
                 request.getRequestURI(),
                 null
         );
+
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException ex, HttpServletRequest request) {
-        throw ex; // Re-throw to allow Spring Security to return 403
+    public ResponseEntity<ErrorResponse> handleAccessDeniedException(
+            AccessDeniedException ex,
+            HttpServletRequest request) {
+
+        throw ex;
     }
 
     @ExceptionHandler(SecurityException.class)
-    public ResponseEntity<ErrorResponse> handleSecurityException(SecurityException ex, HttpServletRequest request) {
-        log.warn("Security exception: {}", ex.getMessage());
+    public ResponseEntity<ErrorResponse> handleSecurityException(
+            SecurityException ex,
+            HttpServletRequest request) {
+
+        log.warn("Security exception: {}", ex.getClass().getSimpleName());
+
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.FORBIDDEN.value(),
                 "FORBIDDEN",
-                ex.getMessage(),
+                "Access denied",
                 request.getRequestURI(),
                 null
         );
+
         return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGlobalException(Exception ex, HttpServletRequest request) {
-        log.error("Unhandled exception processing request: {}", ex.getMessage(), ex);
+    public ResponseEntity<ErrorResponse> handleGlobalException(
+            Exception ex,
+            HttpServletRequest request) {
+
+        log.error(
+                "Unhandled exception processing request. Exception type: {}",
+                ex.getClass().getSimpleName()
+        );
+
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 "INTERNAL_SERVER_ERROR",
                 "An unexpected error occurred",
                 request.getRequestURI(),
-                List.of(ex.getMessage() != null ? ex.getMessage() : "Unknown error")
+                null
         );
+
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

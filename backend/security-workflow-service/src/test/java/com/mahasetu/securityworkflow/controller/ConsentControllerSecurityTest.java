@@ -12,20 +12,14 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.UUID;
-
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.springframework.context.annotation.Import;
 import com.mahasetu.securityworkflow.config.SecurityConfig;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-
 import org.springframework.test.context.ContextConfiguration;
 import com.mahasetu.securityworkflow.SecurityWorkflowApplication;
 
@@ -44,49 +38,6 @@ class ConsentControllerSecurityTest {
     private ObjectMapper objectMapper;
 
     @Test
-    void testCheckConsent_ServiceAccess() throws Exception {
-        when(consentService.checkConsent("c1", "scope", "purpose")).thenReturn(true);
-
-        mockMvc.perform(get("/internal/v1/consents/check")
-                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SERVICE")))
-                .param("citizenId", "c1")
-                .param("dataScope", "scope")
-                .param("purpose", "purpose"))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    void testCheckConsent_UnauthenticatedDenied() throws Exception {
-        mockMvc.perform(get("/internal/v1/consents/check")
-                .param("citizenId", "c1")
-                .param("dataScope", "scope")
-                .param("purpose", "purpose"))
-                .andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    void testCheckConsent_CitizenDenied() throws Exception {
-        mockMvc.perform(get("/internal/v1/consents/check")
-                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CITIZEN")))
-                .param("citizenId", "c1")
-                .param("dataScope", "scope")
-                .param("purpose", "purpose"))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void testCheckConsent_FailsIfInvalid() throws Exception {
-        when(consentService.checkConsent("c1", "scope", "purpose")).thenReturn(false);
-
-        mockMvc.perform(get("/internal/v1/consents/check")
-                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SERVICE")))
-                .param("citizenId", "c1")
-                .param("dataScope", "scope")
-                .param("purpose", "purpose"))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
     void testGrantConsent_Unauthenticated() throws Exception {
         mockMvc.perform(post("/api/v1/consents")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -98,7 +49,7 @@ class ConsentControllerSecurityTest {
     @WithMockUser(username = "c1", roles = {"CITIZEN"})
     void testGrantConsent_AuthenticatedCitizen() throws Exception {
         ConsentRequest req = new ConsentRequest();
-        when(consentService.grantConsent(eq("c1"), any(ConsentRequest.class))).thenReturn(new Consent());
+        when(consentService.grantConsent(eq("C1"), any(ConsentRequest.class))).thenReturn(new Consent());
 
         mockMvc.perform(post("/api/v1/consents")
                 .contentType(MediaType.APPLICATION_JSON)

@@ -2,7 +2,7 @@ package com.mahasetu.securityworkflow.service.worker;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mahasetu.securityworkflow.client.InteroperabilityClient;
-import com.mahasetu.securityworkflow.dto.CanonicalCitizenData;
+import com.mahasetu.securityworkflow.dto.SourceDataResult;
 import org.camunda.bpm.engine.delegate.BpmnError;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.camunda.bpm.engine.delegate.JavaDelegate;
@@ -29,11 +29,18 @@ public class InteroperabilityWorker implements JavaDelegate {
     public void execute(DelegateExecution execution) throws Exception {
         String citizenId = (String) execution.getVariable("citizenId");
         String applicationId = (String) execution.getVariable("applicationId");
+        
+        @SuppressWarnings("unchecked")
+        List<String> allowedScopes = (List<String>) execution.getVariable("allowedScopes");
 
-        log.info("[INTEROP_EVENT] InteroperabilityWorker: fetching data for applicationId={}, citizenId={}", applicationId, citizenId);
+        log.info("[INTEROP_EVENT] InteroperabilityWorker: fetching data for applicationId={}, citizenId={}, scopes={}", applicationId, citizenId, allowedScopes);
+
+        if (allowedScopes == null || allowedScopes.isEmpty()) {
+            throw new BpmnError("INTEROP_FETCH_FAILED", "No allowed scopes provided by consent boundary");
+        }
 
         try {
-            List<CanonicalCitizenData> data = interoperabilityClient.fetchAllData(citizenId);
+            List<SourceDataResult> data = interoperabilityClient.fetchScopedData(citizenId, allowedScopes);
 
             if (data == null || data.isEmpty()) {
                 log.warn("[INTEROP_EVENT] InteroperabilityWorker: No records found for citizenId={}", citizenId);
@@ -51,21 +58,21 @@ public class InteroperabilityWorker implements JavaDelegate {
         } catch (BpmnError e) {
             throw e;
         } catch (org.springframework.web.client.HttpClientErrorException e) {
-            String reason = "Interoperability client error (" + e.getStatusCode() + "): " + e.getMessage();
-            log.error("[INTEROP_EVENT] InteroperabilityWorker: client error for applicationId={}, error={}", applicationId, reason);
-            execution.setVariable("failureReason", reason);
-            throw new BpmnError("INTEROP_FETCH_FAILED", reason);
+            String safeReason = "INTEROPERABILITY_CLIENT_ERROR_HTTP_" + e.getStatusCode().value();
+            log.error("[INTEROP_EVENT] InteroperabilityWorker: client error for applicationId={}, status={}", applicationId, e.getStatusCode());
+            execution.setVariable("failureReason", safeReason);
+            throw new BpmnError("INTEROP_FETCH_FAILED", safeReason);
         } catch (org.springframework.web.client.HttpServerErrorException e) {
-            String reason = "Interoperability downstream server error (" + e.getStatusCode() + "): " + e.getMessage();
-            log.error("[INTEROP_EVENT] InteroperabilityWorker: server error for applicationId={}, error={}", applicationId, reason);
-            execution.setVariable("failureReason", reason);
-            throw new BpmnError("INTEROP_FETCH_FAILED", reason);
+            String safeReason = "INTEROPERABILITY_SERVER_ERROR_HTTP_" + e.getStatusCode().value();
+            log.error("[INTEROP_EVENT] InteroperabilityWorker: server error for applicationId={}, status={}", applicationId, e.getStatusCode());
+            execution.setVariable("failureReason", safeReason);
+            throw new BpmnError("INTEROP_FETCH_FAILED", safeReason);
         } catch (Exception e) {
-            String reason = "Failed to fetch data from Interoperability Service: " + e.getMessage();
-            log.error("[INTEROP_EVENT] InteroperabilityWorker: failed for applicationId={}, citizenId={}, error={}",
-                    applicationId, citizenId, reason);
-            execution.setVariable("failureReason", reason);
-            throw new BpmnError("INTEROP_FETCH_FAILED", reason);
+            String safeReason = "INTEROPERABILITY_UNAVAILABLE";
+            log.error("[INTEROP_EVENT] InteroperabilityWorker: failed for applicationId={}, type={}",
+                    applicationId, e.getClass().getSimpleName());
+            execution.setVariable("failureReason", safeReason);
+            throw new BpmnError("INTEROP_FETCH_FAILED", safeReason);
         }
     }
 }

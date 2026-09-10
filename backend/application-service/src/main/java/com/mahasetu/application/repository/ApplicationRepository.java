@@ -9,4 +9,5 @@ import java.util.Optional;
 @Repository
 public interface ApplicationRepository extends JpaRepository<Application, String> {
     Optional<Application> findByApplicationNumber(String applicationNumber);
+    java.util.List<Application> findByCitizen_CitizenIdOrderByCreatedAtDesc(String citizenId);
 }

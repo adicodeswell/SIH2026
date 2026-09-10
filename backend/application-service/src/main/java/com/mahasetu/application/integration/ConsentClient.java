@@ -8,22 +8,24 @@ import org.springframework.web.client.RestClient;
 public class ConsentClient {
 
     private final RestClient restClient;
+    private final ServiceTokenProvider tokenProvider;
 
-    public ConsentClient(@Value("${integration.consent-service.url:http://consent-service}") String baseUrl) {
+    public ConsentClient(@Value("${integration.workflow-service.url:http://security-workflow-service:8083}") String baseUrl,
+                         ServiceTokenProvider tokenProvider) {
         this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+        this.tokenProvider = tokenProvider;
     }
 
-    public boolean checkConsent(String citizenId, String dataScope, String purpose) {
+    public boolean hasConsentForApplication(String applicationId) {
         try {
-            restClient.get()
+            org.springframework.http.ResponseEntity<Boolean> response = restClient.get()
                     .uri(uriBuilder -> uriBuilder.path("/internal/v1/consents/check")
-                            .queryParam("citizenId", citizenId)
-                            .queryParam("dataScope", dataScope)
-                            .queryParam("purpose", purpose)
+                            .queryParam("applicationId", applicationId)
                             .build())
+                    .header("Authorization", tokenProvider.getAuthorizationHeader())
                     .retrieve()
-                    .toBodilessEntity();
-            return true;
+                    .toEntity(Boolean.class);
+            return Boolean.TRUE.equals(response.getBody());
         } catch (Exception e) {
             return false;
         }

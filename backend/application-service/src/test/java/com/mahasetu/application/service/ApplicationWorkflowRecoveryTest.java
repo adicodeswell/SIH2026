@@ -40,6 +40,8 @@ class ApplicationWorkflowRecoveryTest {
     private ServiceRepository serviceRepository;
     @Mock
     private WorkflowClient workflowClient;
+    @org.mockito.Mock
+    private com.mahasetu.application.integration.ConsentClient consentClient;
 
     @InjectMocks
     private ApplicationService applicationService;

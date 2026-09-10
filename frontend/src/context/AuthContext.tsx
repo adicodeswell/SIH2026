@@ -1,16 +1,47 @@
 import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
 import keycloak from '../lib/auth';
 
-interface AuthContextType {
+export interface AuthContextType {
   isAuthenticated: boolean;
   isInitialized: boolean;
   token: string | undefined;
+  user: {
+    username?: string;
+    email?: string;
+    name?: string;
+    roles: string[];
+  } | null;
   login: () => void;
   logout: () => void;
   hasRole: (role: string) => boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function extractUserFromToken(token?: string) {
+  if (!token) return null;
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const parsed = JSON.parse(jsonPayload);
+    const realmRoles = parsed.realm_access?.roles || [];
+    return {
+      username: parsed.preferred_username || parsed.sub,
+      email: parsed.email,
+      name: parsed.name || parsed.preferred_username,
+      roles: Array.isArray(realmRoles) ? realmRoles : [],
+    };
+  } catch {
+    return null;
+  }
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -23,8 +54,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isRun.current) return;
     isRun.current = true;
 
-    // Removing onLoad: 'check-sso' entirely prevents any automatic redirects when you visit the homepage.
-    // It will only redirect when you explicitly click the "Login" button.
     keycloak.init({ checkLoginIframe: false })
       .then((authenticated) => {
         setIsAuthenticated(authenticated);
@@ -52,8 +81,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => keycloak.logout();
   const hasRole = (role: string) => keycloak.hasRealmRole(role);
 
+  const user = extractUserFromToken(token);
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isInitialized, token, login, logout, hasRole }}>
+    <AuthContext.Provider value={{ isAuthenticated, isInitialized, token, user, login, logout, hasRole }}>
       {children}
     </AuthContext.Provider>
   );

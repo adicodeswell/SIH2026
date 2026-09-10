@@ -17,6 +17,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -44,10 +45,14 @@ public class ApplicationOrchestrationWorkflowTest {
     private ConsentService consentService;
 
     @Autowired
+    
+
     private OfficerTaskService officerTaskService;
 
     @Autowired
     private AuditService auditService;
+    @Mock
+    private com.mahasetu.securityworkflow.service.ConsentPolicyService consentPolicyService;
 
     @MockBean
     private ServiceTokenProvider serviceTokenProvider;
@@ -82,7 +87,7 @@ public class ApplicationOrchestrationWorkflowTest {
     void setup() {
         member1MockServer.resetAll();
         member2MockServer.resetAll();
-        when(serviceTokenProvider.getAuthorizationHeader()).thenReturn("Bearer service-token");
+        when(serviceTokenProvider.getAuthorizationHeader()).thenReturn("Bearer " + TOKEN);
     }
 
     private void setupApplicationAndInteropMocks(String appId, String citizenId) {
@@ -105,13 +110,15 @@ public class ApplicationOrchestrationWorkflowTest {
 
         // Setup Consent matching SRV-EDU policy (dataScope: education, purpose: verification)
         ConsentRequest request = new ConsentRequest();
+        request.setApplicationId(appId);
+        request.setServiceCode("SRV-EDU");
         request.setDataScope("education");
         request.setPurpose("verification");
         request.setRequestingDepartmentId("DEPT-1");
         consentService.grantConsent(citizenId, request);
 
         // Stub Member 2 Interoperability Service
-        member2MockServer.stubFor(get(urlEqualTo("/api/v1/interop/fetch/all/" + citizenId))
+        member2MockServer.stubFor(post(urlEqualTo("/api/v1/interop/fetch/scoped"))
                 .withHeader("Authorization", equalTo("Bearer " + TOKEN))
                 .willReturn(aResponse()
                         .withHeader("Content-Type", "application/json")
@@ -175,12 +182,9 @@ public class ApplicationOrchestrationWorkflowTest {
                 .singleResult();
         assertNotNull(officerTask);
 
-        // Complete decision via OfficerTaskService
-        OfficerDecisionResponse response = officerTaskService.completeOfficerDecision(
-                officerTask.getId(),
-                "officer_verma",
-                "APPROVE",
-                "Qualifications verified successfully"
+        // Claim task and complete decision via OfficerTaskService
+        officerTaskService.claimTask(officerTask.getId(), "officer_verma", "DEPT-EDU");
+        OfficerDecisionResponse response = officerTaskService.completeOfficerDecision(officerTask.getId(), "officer_verma", "DEPT-EDU", "APPROVE", "Qualifications verified successfully"
         );
         assertEquals("APPROVE", response.getDecision());
         assertEquals("COMPLETED", response.getStatus());
@@ -206,7 +210,7 @@ public class ApplicationOrchestrationWorkflowTest {
         // Verify immutable audit log record created
         List<AuditLog> auditLogs = auditService.getAuditLogsForApplication(appId);
         assertFalse(auditLogs.isEmpty());
-        AuditLog log = auditLogs.get(0);
+        AuditLog log = auditLogs.get(auditLogs.size() - 1);
         assertEquals("officer_verma", log.getActorId());
         assertEquals("APPROVE", log.getPurpose());
         assertEquals("APPLICATION", log.getResourceType());
@@ -231,12 +235,9 @@ public class ApplicationOrchestrationWorkflowTest {
                 .singleResult();
         assertNotNull(officerTask);
 
-        // Complete decision via OfficerTaskService with REJECT
-        OfficerDecisionResponse response = officerTaskService.completeOfficerDecision(
-                officerTask.getId(),
-                "officer_kulkarni",
-                "REJECT",
-                "Degree certificate mismatch"
+        // Claim task and complete decision via OfficerTaskService with REJECT
+        officerTaskService.claimTask(officerTask.getId(), "officer_kulkarni", "DEPT-EDU");
+        OfficerDecisionResponse response = officerTaskService.completeOfficerDecision(officerTask.getId(), "officer_kulkarni", "DEPT-EDU", "REJECT", "Degree certificate mismatch"
         );
         assertEquals("REJECT", response.getDecision());
         assertEquals("COMPLETED", response.getStatus());
@@ -263,7 +264,7 @@ public class ApplicationOrchestrationWorkflowTest {
         // Verify immutable audit log record created
         List<AuditLog> auditLogs = auditService.getAuditLogsForApplication(appId);
         assertFalse(auditLogs.isEmpty());
-        AuditLog log = auditLogs.get(0);
+        AuditLog log = auditLogs.get(auditLogs.size() - 1);
         assertEquals("officer_kulkarni", log.getActorId());
         assertEquals("REJECT", log.getPurpose());
         assertTrue(log.getMetadata().contains("Degree certificate mismatch"));
@@ -373,13 +374,15 @@ public class ApplicationOrchestrationWorkflowTest {
 
         // Grant consent
         ConsentRequest request = new ConsentRequest();
+        request.setApplicationId(appId);
+        request.setServiceCode("SRV-EDU");
         request.setDataScope("education");
         request.setPurpose("verification");
         request.setRequestingDepartmentId("DEPT-1");
         consentService.grantConsent(citizenId, request);
 
         // Stub Member 2 to fail with 500 error
-        member2MockServer.stubFor(get(urlEqualTo("/api/v1/interop/fetch/all/" + citizenId))
+        member2MockServer.stubFor(post(urlEqualTo("/api/v1/interop/fetch/scoped"))
                 .willReturn(aResponse().withStatus(500)));
 
         // Start Workflow

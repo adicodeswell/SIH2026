@@ -4,6 +4,7 @@ import com.mahasetu.interoperability.connector.GovernmentSystemConnector;
 import com.mahasetu.interoperability.model.CanonicalCitizenData;
 import com.mahasetu.interoperability.model.ExternalSystem;
 import com.mahasetu.interoperability.model.RawExternalResponse;
+import com.mahasetu.interoperability.model.SourceDataResult;
 import com.mahasetu.interoperability.transformer.DataTransformer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,7 +14,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -46,15 +47,20 @@ public class ConnectorRegistryTest {
         when(mockConnector.fetch("MH1001", ExternalSystem.EMPLOYMENT_SYSTEM)).thenReturn(mockRaw);
         when(mockTransformer.transform(mockRaw)).thenReturn(mockCleanData);
         
-        CanonicalCitizenData result = registry.fetchData(ExternalSystem.EMPLOYMENT_SYSTEM, "MH1001");
+        SourceDataResult result = registry.fetchData(ExternalSystem.EMPLOYMENT_SYSTEM, "MH1001");
         
-        assertEquals("MH1001", result.getCitizenId());
+        assertEquals("EMPLOYMENT_SYSTEM", result.getSource());
+        assertEquals("SUCCESS", result.getStatus());
+        assertEquals("MH1001", result.getData().getCitizenId());
     }
 
     @Test
-    public void testFetchDataThrowsExceptionWhenConnectorMissing() {
-        assertThrows(IllegalArgumentException.class, () -> {
-            registry.fetchData(ExternalSystem.EDUCATION_SYSTEM, "MH1001");
-        });
+    public void testFetchDataHandlesMissingConnector() {
+        SourceDataResult result = registry.fetchData(ExternalSystem.EDUCATION_SYSTEM, "MH1001");
+        
+        assertEquals("EDUCATION_SYSTEM", result.getSource());
+        assertEquals("FAILED", result.getStatus());
+        assertEquals("NO_CONNECTOR", result.getError());
+        assertNull(result.getData());
     }
 }

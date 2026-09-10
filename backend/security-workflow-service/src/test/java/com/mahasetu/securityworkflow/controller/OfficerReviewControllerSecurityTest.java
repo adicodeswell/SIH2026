@@ -4,6 +4,7 @@ import com.mahasetu.securityworkflow.dto.OfficerDecisionResponse;
 import com.mahasetu.securityworkflow.dto.OfficerReviewTaskResponse;
 import com.mahasetu.securityworkflow.service.OfficerTaskService;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -34,6 +35,8 @@ public class OfficerReviewControllerSecurityTest {
     private MockMvc mockMvc;
 
     @MockBean
+    
+
     private OfficerTaskService officerTaskService;
 
     @Test
@@ -62,10 +65,11 @@ public class OfficerReviewControllerSecurityTest {
                 "task-123", "Officer Review", "APP-1", "proc-1",
                 "CIT-1", "SRV-EDU", new Date(), "OFFICER", null, "PENDING_REVIEW"
         );
-        when(officerTaskService.getPendingOfficerTasks()).thenReturn(List.of(task));
+        when(officerTaskService.getPendingOfficerTasks(any())).thenReturn(List.of(task));
 
         mockMvc.perform(get("/api/v1/officer/reviews")
-                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_OFFICER"))))
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_OFFICER"))
+                           .jwt(j -> j.claim("department", "EDU"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].taskId").value("task-123"))
                 .andExpect(jsonPath("$[0].applicationId").value("APP-1"));
@@ -73,10 +77,11 @@ public class OfficerReviewControllerSecurityTest {
 
     @Test
     void testGetPendingReviews_AdminRole_ReturnsOk() throws Exception {
-        when(officerTaskService.getPendingOfficerTasks()).thenReturn(List.of());
+        when(officerTaskService.getPendingOfficerTasks(any())).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/officer/reviews")
-                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                           .jwt(j -> j.claim("department", "EDU"))))
                 .andExpect(status().isOk());
     }
 
@@ -93,18 +98,74 @@ public class OfficerReviewControllerSecurityTest {
                 .andExpect(status().isForbidden());
     }
 
+
     @Test
-    void testSubmitDecision_OfficerRole_Allowed() throws Exception {
+    void testSubmitDecision_ValidPreferredUsername_ExtractsCorrectly() throws Exception {
         OfficerDecisionResponse response = new OfficerDecisionResponse(
-                "task-123", "APP-1", "APPROVE", "officer_42", null, LocalDateTime.now(), "COMPLETED"
+                "task-123", "APP-1", "APPROVE", "officer123", null, LocalDateTime.now(), "COMPLETED"
         );
-        when(officerTaskService.completeOfficerDecision(eq("task-123"), anyString(), eq("APPROVE"), any()))
+        when(officerTaskService.completeOfficerDecision(eq("task-123"), eq("officer123"), eq("SKILLS"), eq("APPROVE"), any()))
                 .thenReturn(response);
 
         mockMvc.perform(post("/api/v1/officer/reviews/task-123/decision")
                 .with(jwt()
                         .authorities(new SimpleGrantedAuthority("ROLE_OFFICER"))
-                        .jwt(j -> j.subject("officer_42")))
+                        .jwt(j -> j.claim("department", "SKILLS").claim("preferred_username", "officer123")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"decision\": \"APPROVE\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void testSubmitDecision_EmptyPreferredUsernameValidFallback_ExtractsCorrectly() throws Exception {
+        OfficerDecisionResponse response = new OfficerDecisionResponse(
+                "task-123", "APP-1", "APPROVE", "fallbackUser", null, LocalDateTime.now(), "COMPLETED"
+        );
+        when(officerTaskService.completeOfficerDecision(eq("task-123"), eq("fallbackUser"), eq("SKILLS"), eq("APPROVE"), any()))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/officer/reviews/task-123/decision")
+                .with(jwt()
+                        .authorities(new SimpleGrantedAuthority("ROLE_OFFICER"))
+                        .jwt(j -> j.claim("department", "SKILLS")
+                                .claim("preferred_username", "")
+                                .subject("fallbackUser")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"decision\": \"APPROVE\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void testSubmitDecision_WhitespacePreferredUsernameValidFallback_ExtractsCorrectly() throws Exception {
+        OfficerDecisionResponse response = new OfficerDecisionResponse(
+                "task-123", "APP-1", "APPROVE", "fallbackUser", null, LocalDateTime.now(), "COMPLETED"
+        );
+        when(officerTaskService.completeOfficerDecision(eq("task-123"), eq("fallbackUser"), eq("SKILLS"), eq("APPROVE"), any()))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/officer/reviews/task-123/decision")
+                .with(jwt()
+                        .authorities(new SimpleGrantedAuthority("ROLE_OFFICER"))
+                        .jwt(j -> j.claim("department", "SKILLS")
+                                .claim("preferred_username", "   ")
+                                .subject("fallbackUser")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"decision\": \"APPROVE\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void testSubmitDecision_OfficerRole_Allowed() throws Exception {
+        OfficerDecisionResponse response = new OfficerDecisionResponse(
+                "task-123", "APP-1", "APPROVE", "officer_42", null, LocalDateTime.now(), "COMPLETED"
+        );
+        when(officerTaskService.completeOfficerDecision(eq("task-123"), anyString(), eq("SKILLS"), eq("APPROVE"), any()))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/officer/reviews/task-123/decision")
+                .with(jwt()
+                        .authorities(new SimpleGrantedAuthority("ROLE_OFFICER"))
+                        .jwt(j -> j.claim("department", "SKILLS").subject("officer_42")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {
@@ -121,13 +182,13 @@ public class OfficerReviewControllerSecurityTest {
         OfficerDecisionResponse response = new OfficerDecisionResponse(
                 "task-123", "APP-1", "REJECT", "admin_1", "Fraudulent documents", LocalDateTime.now(), "COMPLETED"
         );
-        when(officerTaskService.completeOfficerDecision(eq("task-123"), anyString(), eq("REJECT"), eq("Fraudulent documents")))
+        when(officerTaskService.completeOfficerDecision(eq("task-123"), anyString(), eq("SKILLS"), eq("REJECT"), eq("Fraudulent documents")))
                 .thenReturn(response);
 
         mockMvc.perform(post("/api/v1/officer/reviews/task-123/decision")
                 .with(jwt()
                         .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))
-                        .jwt(j -> j.subject("admin_1")))
+                        .jwt(j -> j.claim("department", "SKILLS").subject("admin_1")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {

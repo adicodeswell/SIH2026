@@ -11,6 +11,23 @@ public class ApplicationResponse {
     private LocalDateTime submittedAt;
     private Object verificationData;
 
+    private String serviceName;
+    private String departmentCode;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+    public String getServiceName() { return serviceName; }
+    public void setServiceName(String serviceName) { this.serviceName = serviceName; }
+
+    public String getDepartmentCode() { return departmentCode; }
+    public void setDepartmentCode(String departmentCode) { this.departmentCode = departmentCode; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
     public Object getVerificationData() { return verificationData; }
     public void setVerificationData(Object verificationData) { this.verificationData = verificationData; }
 

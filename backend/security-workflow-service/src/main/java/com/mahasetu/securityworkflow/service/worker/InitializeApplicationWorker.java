@@ -48,9 +48,9 @@ public class InitializeApplicationWorker implements JavaDelegate {
             throw e; // Re-throw BpmnErrors — they are handled by BPMN boundary events
         } catch (Exception e) {
             log.error("[WORKFLOW_EVENT] InitializeApplicationWorker: failed to fetch application applicationId={}, error={}",
-                    applicationId, e.getMessage());
+                    applicationId, e.getClass().getSimpleName());
             execution.setVariable("failureReason", "Failed to fetch application from Application Service");
-            throw new BpmnError("APPLICATION_FETCH_FAILED", "Error fetching application: " + e.getMessage());
+            throw new BpmnError("APPLICATION_FETCH_FAILED", "APPLICATION_FETCH_UNAVAILABLE");
         }
     }
 }

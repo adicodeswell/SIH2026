@@ -6,6 +6,8 @@ spring:
     username: sa
     password: sa
     driver-class-name: org.h2.Driver
+  flyway:
+    enabled: false
   jpa:
     hibernate:
       ddl-auto: create-drop
@@ -50,9 +52,18 @@ mahasetu:
       SKILL_BENEFIT:
         dataScope: "education,employment,skills"
         purpose: "verification"
+        requestingDepartmentId: "DEPT-SKILLS"
+        requiredFields: "fullName,dateOfBirth,highestDegree,employmentStatus,skillStatus"
+        optionalFields: "annualFamilyIncome"
       SCHOLARSHIP:
         dataScope: "education"
         purpose: "scholarship_verification"
+        requestingDepartmentId: "DEPT-EDU"
+        requiredFields: "fullName,dateOfBirth,highestDegree,universityName"
+        optionalFields: "annualFamilyIncome"
       SRV-EDU:
         dataScope: "education"
         purpose: "verification"
+        requestingDepartmentId: "DEPT-EDU"
+        requiredFields: "fullName,dateOfBirth,highestDegree,universityName"
+        optionalFields: "annualFamilyIncome"

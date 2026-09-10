@@ -15,7 +15,7 @@ public class CanonicalCitizenData {
     private String category;
     
     // Financial & Health Data
-    private Double annualFamilyIncome;
+    private java.math.BigDecimal annualFamilyIncome;
     private String disabilityStatus;
     private String bankAccountNumber;
     private String bloodGroup;
@@ -47,8 +47,8 @@ public class CanonicalCitizenData {
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
 
-    public Double getAnnualFamilyIncome() { return annualFamilyIncome; }
-    public void setAnnualFamilyIncome(Double annualFamilyIncome) { this.annualFamilyIncome = annualFamilyIncome; }
+    public java.math.BigDecimal getAnnualFamilyIncome() { return annualFamilyIncome; }
+    public void setAnnualFamilyIncome(java.math.BigDecimal annualFamilyIncome) { this.annualFamilyIncome = annualFamilyIncome; }
 
     public String getDisabilityStatus() { return disabilityStatus; }
     public void setDisabilityStatus(String disabilityStatus) { this.disabilityStatus = disabilityStatus; }

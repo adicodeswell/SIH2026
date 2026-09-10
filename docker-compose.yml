@@ -26,9 +26,9 @@ services:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       KC_DB: postgres
-      KC_DB_URL: ${KEYCLOAK_DB_URL:-jdbc:postgresql://ep-proud-tree-a5mvkwlf-pooler.us-east-2.aws.neon.tech:5432/mahasetu_keycloak?sslmode=require}
-      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-neondb_owner}
-      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-npg_n7J6NReErVwU}
+      KC_DB_URL: ${KEYCLOAK_DB_URL:-jdbc:postgresql://postgres:5432/mahasetu}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-postgres}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-postgres}
       KC_HOSTNAME: localhost
       KC_HOSTNAME_PORT: 8080
       KC_HOSTNAME_STRICT_BACKCHANNEL: 'true'
@@ -70,9 +70,9 @@ services:
       context: .
       dockerfile: backend/application-service/docker/Dockerfile
     environment:
-      APP_DB_URL: ${APP_DB_URL:-jdbc:postgresql://ep-proud-tree-a5mvkwlf-pooler.us-east-2.aws.neon.tech:5432/mahasetu_application?sslmode=require}
-      APP_DB_USER: ${APP_DB_USER:-neondb_owner}
-      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-npg_n7J6NReErVwU}
+      APP_DB_URL: ${APP_DB_URL:-jdbc:postgresql://postgres:5432/mahasetu}
+      APP_DB_USER: ${APP_DB_USER:-postgres}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-postgres}
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_REALM: mahasetu
       WORKFLOW_SERVICE_URL: http://security-workflow-service:8083
@@ -84,6 +84,8 @@ services:
     ports:
       - 8081:8081
     depends_on:
+      postgres:
+        condition: service_healthy
       keycloak:
         condition: service_started
     restart: 'no'
@@ -92,11 +94,11 @@ services:
       context: .
       dockerfile: backend/security-workflow-service/Dockerfile
     environment:
-      WORKFLOW_DB_URL: ${WORKFLOW_DB_URL:-jdbc:postgresql://ep-proud-tree-a5mvkwlf-pooler.us-east-2.aws.neon.tech:5432/mahasetu_workflow?sslmode=require}
-      WORKFLOW_DB_USER: ${WORKFLOW_DB_USER:-neondb_owner}
-      WORKFLOW_DB_PASSWORD: ${WORKFLOW_DB_PASSWORD:-npg_n7J6NReErVwU}
+      WORKFLOW_DB_URL: ${WORKFLOW_DB_URL:-jdbc:postgresql://postgres:5432/mahasetu}
+      WORKFLOW_DB_USER: ${WORKFLOW_DB_USER:-postgres}
+      WORKFLOW_DB_PASSWORD: ${WORKFLOW_DB_PASSWORD:-postgres}
       KEYCLOAK_ISSUER_URI: http://localhost:8080/realms/mahasetu
-      KEYCLOAK_TOKEN_URI: http://localhost:8080/realms/mahasetu/protocol/openid-connect/token
+      KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/mahasetu/protocol/openid-connect/token
       APPLICATION_SERVICE_URL: http://application-service:8081
       INTEROPERABILITY_SERVICE_URL: http://interoperability-service:8082
       INTEROPERABILITY_SERVICE_TOKEN: ${INTEROPERABILITY_SERVICE_TOKEN:-dev-interop-token}
@@ -108,6 +110,8 @@ services:
     ports:
       - 8083:8083
     depends_on:
+      postgres:
+        condition: service_healthy
       keycloak:
         condition: service_started
       application-service:

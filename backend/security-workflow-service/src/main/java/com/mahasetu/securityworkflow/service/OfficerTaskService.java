@@ -36,18 +36,20 @@ public class OfficerTaskService {
     private final TaskService taskService;
     private final HistoryService historyService;
     private final AuditService auditService;
+    private final ConsentPolicyService consentPolicyService;
 
-    public OfficerTaskService(TaskService taskService, HistoryService historyService, AuditService auditService) {
+    public OfficerTaskService(TaskService taskService, HistoryService historyService, AuditService auditService, ConsentPolicyService consentPolicyService) {
         this.taskService = taskService;
         this.historyService = historyService;
         this.auditService = auditService;
+        this.consentPolicyService = consentPolicyService;
     }
 
     /**
      * Lists all pending, active officer review tasks in Camunda.
      */
-    public List<OfficerReviewTaskResponse> getPendingOfficerTasks() {
-        log.info("Querying active officer review tasks");
+    public List<OfficerReviewTaskResponse> getPendingOfficerTasks(String officerDepartment) {
+        log.info("Querying active officer review tasks for department {}", officerDepartment);
         List<Task> tasks = taskService.createTaskQuery()
                 .taskDefinitionKey(OFFICER_TASK_DEFINITION_KEY)
                 .active()
@@ -57,40 +59,72 @@ public class OfficerTaskService {
 
         List<OfficerReviewTaskResponse> responses = new ArrayList<>();
         for (Task task : tasks) {
-            responses.add(mapToResponse(task));
+            try {
+                TaskContext ctx = resolveTaskContext(task.getId());
+                String applicationDepartment = ctx.policy().getRequestingDepartmentId();
+                if (applicationDepartment != null) {
+                    String authorizedDepartment = applicationDepartment.trim().toUpperCase(java.util.Locale.ROOT);
+                    if (authorizedDepartment.equals(officerDepartment != null ? officerDepartment.trim().toUpperCase(java.util.Locale.ROOT) : null)) {
+                        responses.add(mapToResponse(task));
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Skipping task {} due to context resolution error: {}", task.getId(), e.getMessage());
+            }
         }
-        log.info("Found {} pending officer review tasks", responses.size());
+        log.info("Found {} pending officer review tasks for department {}", responses.size(), officerDepartment);
         return responses;
     }
 
     /**
      * Retrieves a specific officer review task by its Camunda task ID.
      */
-    public OfficerReviewTaskResponse getOfficerTaskById(String taskId) {
+    public OfficerReviewTaskResponse getOfficerTaskById(String taskId, String officerDepartment) {
         Task task = findActiveOfficerTaskOrThrow(taskId);
+
+        TaskContext ctx = resolveTaskContext(taskId);
+        String applicationDepartment = ctx.policy().getRequestingDepartmentId();
+        if (applicationDepartment == null || applicationDepartment.trim().isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("Application department is not configured");
+        }
+
+        String authorizedDepartment = applicationDepartment.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!authorizedDepartment.equals(officerDepartment != null ? officerDepartment.trim().toUpperCase(java.util.Locale.ROOT) : null)) {
+            throw new org.springframework.security.access.AccessDeniedException("Officer is not authorized");
+        }
+
         return mapToResponse(task);
     }
 
     /**
      * Claims a task on behalf of the authenticated officer.
      */
-    public OfficerReviewTaskResponse claimTask(String taskId, String officerId) {
+    public OfficerReviewTaskResponse claimTask(String taskId, String officerId, String officerDepartment) {
         log.info("[OFFICER_EVENT] Officer {} attempting to claim task {}", officerId, taskId);
         Task task = findActiveOfficerTaskOrThrow(taskId);
+
+        TaskContext ctx = resolveTaskContext(taskId);
+        String applicationDepartment = ctx.policy().getRequestingDepartmentId();
+        if (applicationDepartment == null || applicationDepartment.trim().isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("Application department is not configured");
+        }
+
+        String authorizedDepartment = applicationDepartment.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!authorizedDepartment.equals(officerDepartment != null ? officerDepartment.trim().toUpperCase(java.util.Locale.ROOT) : null)) {
+            throw new org.springframework.security.access.AccessDeniedException("Officer is not authorized");
+        }
 
         if (task.getAssignee() != null) {
             if (task.getAssignee().equals(officerId)) {
                 log.info("[OFFICER_EVENT] Task {} is already claimed by officer {}", taskId, officerId);
                 return mapToResponse(task);
             }
-            throw new InvalidTaskOperationException("Task " + taskId + " is already claimed by another officer: " + task.getAssignee());
+            throw new InvalidTaskOperationException("Task is already claimed by another officer");
         }
 
         taskService.claim(taskId, officerId);
         log.info("[OFFICER_EVENT] Task {} successfully claimed by officer {}", taskId, officerId);
-        Map<String, Object> variables = taskService.getVariables(taskId);
-        String applicationId = variables != null ? (String) variables.get("applicationId") : null;
-        auditService.recordOfficerClaim(applicationId, taskId, officerId);
+        auditService.recordOfficerClaim(ctx.applicationId(), taskId, officerId);
 
         Task updatedTask = taskService.createTaskQuery().taskId(taskId).singleResult();
         return mapToResponse(updatedTask != null ? updatedTask : task);
@@ -99,23 +133,32 @@ public class OfficerTaskService {
     /**
      * Unclaims a task previously claimed by the authenticated officer.
      */
-    public OfficerReviewTaskResponse unclaimTask(String taskId, String officerId) {
+    public OfficerReviewTaskResponse unclaimTask(String taskId, String officerId, String officerDepartment) {
         log.info("[OFFICER_EVENT] Officer {} attempting to unclaim task {}", officerId, taskId);
         Task task = findActiveOfficerTaskOrThrow(taskId);
+
+        TaskContext ctx = resolveTaskContext(taskId);
+        String applicationDepartment = ctx.policy().getRequestingDepartmentId();
+        if (applicationDepartment == null || applicationDepartment.trim().isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("Application department is not configured");
+        }
+
+        String authorizedDepartment = applicationDepartment.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!authorizedDepartment.equals(officerDepartment != null ? officerDepartment.trim().toUpperCase(java.util.Locale.ROOT) : null)) {
+            throw new org.springframework.security.access.AccessDeniedException("Officer is not authorized");
+        }
 
         if (task.getAssignee() == null) {
             return mapToResponse(task);
         }
 
         if (!task.getAssignee().equals(officerId)) {
-            throw new InvalidTaskOperationException("Cannot unclaim task " + taskId + " claimed by another officer: " + task.getAssignee());
+            throw new InvalidTaskOperationException("Task is assigned to another officer");
         }
 
-        Map<String, Object> variables = taskService.getVariables(taskId);
-        String applicationId = variables != null ? (String) variables.get("applicationId") : null;
         taskService.setAssignee(taskId, null);
         log.info("[OFFICER_EVENT] Task {} successfully unclaimed by officer {}", taskId, officerId);
-        auditService.recordOfficerUnclaim(applicationId, taskId, officerId);
+        auditService.recordOfficerUnclaim(ctx.applicationId(), taskId, officerId);
 
         Task updatedTask = taskService.createTaskQuery().taskId(taskId).singleResult();
         return mapToResponse(updatedTask != null ? updatedTask : task);
@@ -126,7 +169,7 @@ public class OfficerTaskService {
      * Validates task state, ensures idempotency, records audit log, and resumes the BPMN process.
      */
     @Transactional
-    public OfficerDecisionResponse completeOfficerDecision(String taskId, String officerId, String decision, String reason) {
+    public OfficerDecisionResponse completeOfficerDecision(String taskId, String officerId, String officerDepartment, String decision, String reason) {
         if (decision == null) {
             throw new ValidationException("Decision must not be null");
         }
@@ -152,17 +195,30 @@ public class OfficerTaskService {
 
             if (historicTask != null && historicTask.getEndTime() != null) {
                 log.warn("Task {} exists in history and has already completed", taskId);
+                
+                String procInstId = historicTask.getProcessInstanceId();
+                if (procInstId == null || procInstId.isBlank()) {
+                    throw new InvalidTaskOperationException("Task context is invalid");
+                }
+                
+                TaskContext ctx = resolveHistoricalTaskContext(procInstId);
+                String applicationDepartment = ctx.policy().getRequestingDepartmentId();
+                
+                if (applicationDepartment == null || applicationDepartment.trim().isEmpty()) {
+                    throw new org.springframework.security.access.AccessDeniedException("Application department is not configured");
+                }
+                String authorizedDepartment = applicationDepartment.trim().toUpperCase(java.util.Locale.ROOT);
+                if (!authorizedDepartment.equals(officerDepartment != null ? officerDepartment.trim().toUpperCase(java.util.Locale.ROOT) : null)) {
+                    throw new org.springframework.security.access.AccessDeniedException("Officer is not authorized");
+                }
+
                 org.camunda.bpm.engine.history.HistoricVariableInstance histOfficer = historyService.createHistoricVariableInstanceQuery()
-                        .processInstanceId(historicTask.getProcessInstanceId())
+                        .processInstanceId(procInstId)
                         .variableName("officerId")
                         .singleResult();
                 org.camunda.bpm.engine.history.HistoricVariableInstance histDecision = historyService.createHistoricVariableInstanceQuery()
-                        .processInstanceId(historicTask.getProcessInstanceId())
+                        .processInstanceId(procInstId)
                         .variableName("officerDecision")
-                        .singleResult();
-                org.camunda.bpm.engine.history.HistoricVariableInstance histAppId = historyService.createHistoricVariableInstanceQuery()
-                        .processInstanceId(historicTask.getProcessInstanceId())
-                        .variableName("applicationId")
                         .singleResult();
 
                 if (histOfficer != null && officerId.equals(histOfficer.getValue()) &&
@@ -170,7 +226,7 @@ public class OfficerTaskService {
                     log.info("Duplicate decision detected for completed task {}: returning idempotent response", taskId);
                     return new OfficerDecisionResponse(
                             taskId,
-                            histAppId != null ? (String) histAppId.getValue() : null,
+                            ctx.applicationId(),
                             normalizedDecision,
                             officerId,
                             reason,
@@ -188,15 +244,28 @@ public class OfficerTaskService {
         if (!OFFICER_TASK_DEFINITION_KEY.equals(task.getTaskDefinitionKey())) {
             log.warn("Task {} has definition key {} which is not an officer review task",
                     taskId, task.getTaskDefinitionKey());
-            throw new InvalidTaskOperationException("Task " + taskId + " is not an officer review task");
+            throw new InvalidTaskOperationException("Task is not an officer review task");
         }
 
-        if (task.getAssignee() != null && !task.getAssignee().equals(officerId)) {
-            throw new InvalidTaskOperationException("Task " + taskId + " is claimed by another officer: " + task.getAssignee());
+        if (task.getAssignee() == null) {
+            throw new InvalidTaskOperationException("Task has not been claimed");
+        }
+        if (!task.getAssignee().equals(officerId)) {
+            throw new InvalidTaskOperationException("Task is assigned to another officer");
         }
 
-        Map<String, Object> variables = taskService.getVariables(taskId);
-        String applicationId = (String) variables.get("applicationId");
+        TaskContext ctx = resolveTaskContext(taskId);
+        String applicationDepartment = ctx.policy().getRequestingDepartmentId();
+        if (applicationDepartment == null || applicationDepartment.trim().isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("Application department is not configured");
+        }
+
+        String authorizedDepartment = applicationDepartment.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!authorizedDepartment.equals(officerDepartment != null ? officerDepartment.trim().toUpperCase(java.util.Locale.ROOT) : null)) {
+            throw new org.springframework.security.access.AccessDeniedException("Officer is not authorized");
+        }
+        String applicationId = ctx.applicationId();
+
         String processInstanceId = task.getProcessInstanceId();
 
         log.info("Completing officer review task: taskId={}, applicationId={}, officerId={}, decision={}",
@@ -216,10 +285,10 @@ public class OfficerTaskService {
         try {
             taskService.complete(taskId, completionVariables);
         } catch (OptimisticLockingException e) {
-            log.warn("Concurrent modification on task {}: {}", taskId, e.getMessage());
+            log.warn("Concurrent modification on task {}: {}", taskId, e.getClass().getSimpleName());
             throw new TaskAlreadyCompletedException(taskId);
         } catch (ProcessEngineException e) {
-            log.error("ProcessEngineException completing task {}: {}", taskId, e.getMessage());
+            log.error("ProcessEngineException completing task {}: {}", taskId, e.getClass().getSimpleName());
             throw new TaskAlreadyCompletedException(taskId);
         }
 
@@ -274,6 +343,67 @@ public class OfficerTaskService {
 
         return task;
     }
+
+
+    private record TaskContext(String applicationId, String serviceCode, com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy policy) {}
+
+    private TaskContext resolveTaskContext(String taskId) {
+        java.util.Map<String, Object> variables = taskService.getVariables(taskId);
+        if (variables == null) {
+            throw new InvalidTaskOperationException("Task context is invalid");
+        }
+
+        Object applicationIdValue = variables.get("applicationId");
+        Object serviceCodeValue = variables.get("serviceCode");
+
+        if (!(applicationIdValue instanceof String applicationId)
+                || applicationId.isBlank()
+                || !(serviceCodeValue instanceof String serviceCode)
+                || serviceCode.isBlank()) {
+            throw new InvalidTaskOperationException("Task context is invalid");
+        }
+
+        String normalizedServiceCode = serviceCode.trim().toUpperCase(java.util.Locale.ROOT);
+        com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy policy = consentPolicyService.getPolicy(normalizedServiceCode);
+        if (policy == null) {
+            throw new InvalidTaskOperationException("Task context is invalid");
+        }
+
+        return new TaskContext(applicationId.trim(), normalizedServiceCode, policy);
+    }
+
+    private TaskContext resolveHistoricalTaskContext(String processInstanceId) {
+        org.camunda.bpm.engine.history.HistoricVariableInstance appVar = historyService.createHistoricVariableInstanceQuery()
+                .processInstanceId(processInstanceId)
+                .variableName("applicationId")
+                .singleResult();
+                
+        org.camunda.bpm.engine.history.HistoricVariableInstance svcVar = historyService.createHistoricVariableInstanceQuery()
+                .processInstanceId(processInstanceId)
+                .variableName("serviceCode")
+                .singleResult();
+
+        if (appVar == null || svcVar == null) {
+            throw new InvalidTaskOperationException("Task context is invalid");
+        }
+
+        Object applicationIdValue = appVar.getValue();
+        Object serviceCodeValue = svcVar.getValue();
+
+        if (!(applicationIdValue instanceof String applicationId) || applicationId.isBlank() ||
+            !(serviceCodeValue instanceof String serviceCode) || serviceCode.isBlank()) {
+            throw new InvalidTaskOperationException("Task context is invalid");
+        }
+
+        String normalizedServiceCode = serviceCode.trim().toUpperCase(java.util.Locale.ROOT);
+        com.mahasetu.securityworkflow.dto.ResolvedConsentPolicy policy = consentPolicyService.getPolicy(normalizedServiceCode);
+        if (policy == null) {
+            throw new InvalidTaskOperationException("Task context is invalid");
+        }
+
+        return new TaskContext(applicationId.trim(), normalizedServiceCode, policy);
+    }
+
 
     private OfficerReviewTaskResponse mapToResponse(Task task) {
         Map<String, Object> variables = taskService.getVariables(task.getId());

@@ -9,7 +9,7 @@ spring:
     password: ${WORKFLOW_DB_PASSWORD:${DB_PASSWORD:npg_n7J6NReErVwU}}
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
@@ -41,6 +41,11 @@ management:
     health:
       show-details: when_authorized
 
+spring.flyway.enabled: true
+spring.flyway.baseline-on-migrate: true
+spring.flyway.baseline-version: 0
+spring.flyway.table: flyway_schema_history_workflow
+
 camunda:
   bpm:
     auto-deployment-enabled: true
@@ -61,12 +66,21 @@ mahasetu:
       SKILL_BENEFIT:
         dataScope: "education,employment,skills"
         purpose: "verification"
+        requestingDepartmentId: "DEPT-SKILLS"
+        requiredFields: "fullName,dateOfBirth,highestDegree,employmentStatus,skillStatus"
+        optionalFields: "annualFamilyIncome"
       SCHOLARSHIP:
         dataScope: "education"
         purpose: "scholarship_verification"
+        requestingDepartmentId: "DEPT-EDU"
+        requiredFields: "fullName,dateOfBirth,highestDegree,universityName"
+        optionalFields: "annualFamilyIncome"
       SRV-EDU:
         dataScope: "education,health"
         purpose: "verification"
+        requestingDepartmentId: "DEPT-EDU"
+        requiredFields: "fullName,dateOfBirth,highestDegree,universityName"
+        optionalFields: "annualFamilyIncome"
 
 logging:
   level:
