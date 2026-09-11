@@ -222,7 +222,7 @@
       ],
       "attributes": {
         "department": [
-          "DEPT-HLTH"
+          "DEPT_HLTH"
         ]
       }
     }
