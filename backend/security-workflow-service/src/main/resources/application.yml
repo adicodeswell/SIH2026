@@ -78,7 +78,7 @@ mahasetu:
       SRV-EDU:
         dataScope: "education,health"
         purpose: "verification"
-        requestingDepartmentId: "DEPT-HLTH"
+        requestingDepartmentId: "DEPT_HLTH"
         requiredFields: "fullName,dateOfBirth,highestDegree,universityName"
         optionalFields: "annualFamilyIncome"
 
