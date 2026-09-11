@@ -281,7 +281,6 @@ public class ApplicationService {
         return mapToResponse(updatedApplication);
     }
 
-    @Transactional
     public ApplicationResponse submitApplication(String applicationNumber, String citizenId, com.mahasetu.application.integration.ConsentClient consentClient) {
         Application application = applicationRepository.findByApplicationNumber(applicationNumber)
                 .orElseThrow(() -> new ResourceNotFoundException("Application not found: " + applicationNumber));
@@ -365,7 +364,6 @@ public class ApplicationService {
         return mapToResponse(updatedApplication);
     }
 
-    @Transactional
     public ApplicationResponse retryWorkflow(String applicationNumber) {
         log.info("[RECOVERY_EVENT] Initiating workflow retry for applicationNumber={}", applicationNumber);
         Application application = applicationRepository.findByApplicationNumber(applicationNumber)
