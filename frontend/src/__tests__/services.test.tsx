@@ -251,17 +251,24 @@ describe('Citizen Service Discovery & Application Creation (Phase 2)', () => {
     it('submits application successfully with explicit DPDP consent and displays reference', async () => {
       vi.mocked(serviceCatalogApi.getServiceById).mockResolvedValue(mockServices[0]);
       vi.mocked(serviceCatalogApi.grantConsent).mockResolvedValue({
-        status: 'SUCCESS',
-        referenceId: 'CONSENT-123',
-        consentId: 'C-123',
-        expiresAt: '2026-01-01',
+        id: 'C-123',
+        citizenId: 'MH1001',
+        dataScope: 'PROFILE,INCOME',
+        purpose: 'Application Processing',
+        requestingDepartmentId: 'DEPT-SKILL',
+        status: 'ACTIVE',
+        grantedAt: new Date().toISOString(),
       });
       vi.mocked(serviceCatalogApi.submitApplication).mockResolvedValue({
         applicationNumber: 'MH-2026-SKILL-99',
         status: 'SUBMITTED',
         citizenId: 'MH1001',
         serviceCode: 'SKILL_BENEFIT',
+        serviceName: 'Skill Development Allowance',
+        departmentCode: 'DEPT-SKILL',
         submittedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: null,
       });
       vi.mocked(serviceCatalogApi.createApplication).mockResolvedValue({
         applicationNumber: 'MH-2026-SKILL-99',

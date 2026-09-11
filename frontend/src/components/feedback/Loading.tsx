@@ -23,10 +23,10 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
     <div
       role="status"
       aria-label={label}
-      className={cn('inline-flex items-center gap-2 text-primary', className)}
+      className={cn('inline-flex items-center gap-2 text-[#0B1F3A]', className)}
       {...props}
     >
-      <Loader2 className={cn('animate-spin text-primary', sizeMap[size])} />
+      <Loader2 className={cn('animate-spin text-[#0B1F3A]', sizeMap[size])} />
       <span className="sr-only">{label}</span>
     </div>
   );
@@ -39,17 +39,17 @@ export interface PageLoaderProps {
 
 export const PageLoader: React.FC<PageLoaderProps> = ({
   message = 'Loading platform resources...',
-  subtext = 'Government of Maharashtra Digital Portal',
+  subtext = 'Government Interoperability Platform • Ekikrit Gateway',
 }) => {
   return (
     <div
       role="status"
       aria-live="polite"
-      className="min-h-[50vh] flex flex-col items-center justify-center p-8 space-y-4"
+      className="min-h-[50vh] flex flex-col items-center justify-center p-8 space-y-3"
     >
-      <div className="w-12 h-12 rounded-full border-3 border-primary/20 border-t-primary animate-spin" />
+      <div className="w-10 h-10 rounded-full border-3 border-slate-200 border-t-[#0B1F3A] animate-spin" />
       <div className="text-center space-y-1">
-        <p className="text-base font-semibold text-slate-900">{message}</p>
+        <p className="text-sm font-bold text-slate-900">{message}</p>
         <p className="text-xs text-slate-500">{subtext}</p>
       </div>
       <span className="sr-only">{message}</span>
@@ -65,7 +65,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({ className, ...props }) => {
   return (
     <div
       data-slot="skeleton"
-      className={cn('animate-pulse rounded-md bg-slate-200/80', className)}
+      className={cn('animate-pulse rounded-sm bg-slate-200/80', className)}
       {...props}
     />
   );
@@ -89,10 +89,10 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
         <div
           role="status"
           aria-live="assertive"
-          className="absolute inset-0 z-40 bg-white/75 backdrop-blur-[1px] flex flex-col items-center justify-center p-6 space-y-3"
+          className="absolute inset-0 z-40 bg-white/80 backdrop-blur-[1px] flex flex-col items-center justify-center p-6 space-y-3"
         >
-          <Loader2 className="w-8 h-8 text-primary animate-spin" />
-          <p className="text-sm font-medium text-slate-800">{message}</p>
+          <Loader2 className="w-8 h-8 text-[#0B1F3A] animate-spin" />
+          <p className="text-xs font-bold text-slate-900">{message}</p>
         </div>
       )}
     </div>

@@ -12,38 +12,40 @@ interface ServiceCardProps {
 
 export const ServiceCard: React.FC<ServiceCardProps> = ({ service }) => {
   return (
-    <Card className="border-slate-200 shadow-sm hover:border-slate-300 transition-all flex flex-col justify-between bg-white">
+    <Card className="border-slate-200 shadow-xs hover:border-[#0B1F3A]/40 transition-all flex flex-col justify-between bg-white rounded-md overflow-hidden group">
       <div>
-        <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
-          <div className="flex items-start justify-between gap-3">
+        <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/70">
+          <div className="flex items-start justify-between gap-2.5">
             <div className="space-y-1">
-              <CardTitle className="text-base font-semibold text-slate-900 leading-snug">
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span className="truncate">{service.departmentName || service.departmentCode || 'Government Department'}</span>
+              </div>
+              <CardTitle className="text-sm font-bold text-slate-900 leading-snug group-hover:text-[#0B1F3A]">
                 {service.serviceName}
               </CardTitle>
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <span>{service.departmentName || service.departmentCode || 'Government Department'}</span>
-              </div>
             </div>
-            <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200 text-xs shrink-0 font-mono">
+            <Badge variant="service" className="text-[11px] shrink-0 font-mono">
               {service.serviceCode}
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="pt-4 pb-4">
-          <p className="text-sm text-slate-600 leading-relaxed line-clamp-3">
+        <CardContent className="pt-3.5 pb-3.5 space-y-3">
+          <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
             {service.description || 'Verified government welfare scheme providing targeted citizen benefits.'}
           </p>
-          <div className="mt-4 flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50/80 px-2.5 py-1.5 rounded border border-emerald-200/60">
-            <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-            <span>Zero-document verification via DPDP consent</span>
+
+          <div className="flex items-center gap-1.5 text-[11px] text-emerald-800 bg-emerald-50 px-2 py-1 rounded-xs border border-emerald-200/80">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <span className="truncate">Zero-document verification via DPDP consent</span>
           </div>
         </CardContent>
       </div>
-      <div className="p-4 pt-0 border-t border-slate-100 bg-white flex items-center justify-between gap-2 mt-auto">
+
+      <div className="p-3.5 pt-0 border-t border-slate-100 bg-white flex items-center justify-between gap-2 mt-auto">
         <Link to={`/citizen/services/${service.serviceCode}`} className="w-full">
-          <Button className="w-full justify-center gap-2 font-medium text-sm">
-            View & Apply <ArrowRight className="w-4 h-4" />
+          <Button className="w-full justify-center gap-1.5 font-semibold text-xs h-8.5 bg-[#0B1F3A] hover:bg-[#102A43] text-white">
+            Apply Online <ArrowRight className="w-3.5 h-3.5" />
           </Button>
         </Link>
       </div>
