@@ -240,7 +240,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <div className="text-right">
                     <div className="text-xs font-bold text-white flex items-center justify-end gap-1.5">
                       <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>{user?.name || user?.username?.toUpperCase() || 'Gov User'}</span>
+                      <span>{user?.name || user?.username || 'Gov User'}</span>
                     </div>
                     <div className="text-[10px] text-amber-400 font-medium tracking-wider uppercase">
                       {user?.roles?.includes('OFFICER')
@@ -328,7 +328,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <div className="space-y-3">
                   <div className="px-3 py-2 bg-[#102A43] rounded-sm border border-slate-700 text-xs">
                     <p className="font-bold text-white">
-                      {user?.name || user?.username?.toUpperCase()}
+                      {user?.name || user?.username}
                     </p>
                     <p className="text-[10px] text-amber-400 uppercase tracking-wider mt-0.5">
                       {user?.roles?.includes('OFFICER')
