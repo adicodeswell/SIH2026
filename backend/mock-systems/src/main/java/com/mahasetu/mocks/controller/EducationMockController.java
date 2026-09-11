@@ -16,8 +16,23 @@ public class EducationMockController {
     @GetMapping(value = "/{citizenId}", produces = "text/csv")
     public String getEducationData(@PathVariable String citizenId) {
         // Simulating a CSV row
-        String name = citizenId.equals("MH1001") ? "Rahul Patil" : "Unknown";
+        String name = "Unknown";
+        String degree = "None";
+        String year = "0";
+        if (citizenId.equals("MH1001")) {
+            name = "Rahul Patil";
+            degree = "B.Tech";
+            year = "2022";
+        } else if (citizenId.equals("MH1002")) {
+            name = "Aditya Jha";
+            degree = "B.Tech";
+            year = "2028";
+        } else if (citizenId.equals("MH1003")) {
+            name = "Ankit Kumar";
+            degree = "B.Tech";
+            year = "2028";
+        }
         return "ID,STUDENT_NAME,DEGREE,UNIVERSITY,YEAR\n" +
-               citizenId + "," + name + ",B.Tech,Mumbai University,2022\n";
+               citizenId + "," + name + "," + degree + ",Mumbai University," + year + "\n";
     }
 }

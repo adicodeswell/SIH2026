@@ -30,6 +30,24 @@ public class EmploymentMockController {
             response.put("annual_family_income", 250000.00); // 2.5 Lakhs
             response.put("category", "OBC");
             response.put("bank_account", "XXXX-XXXX-9876");
+        } else if (citizenId.equals("MH1002")) {
+            response.put("full_name", "Aditya Jha");
+            response.put("dob", "2006-07-30");
+            response.put("emp_status", "STUDENT");
+            response.put("highest_degree", "High School");
+            response.put("grad_year", 2024);
+            response.put("annual_family_income", 150000.00); 
+            response.put("category", "General");
+            response.put("bank_account", "XXXX-XXXX-1111");
+        } else if (citizenId.equals("MH1003")) {
+            response.put("full_name", "Ankit Kumar");
+            response.put("dob", "2006-01-16");
+            response.put("emp_status", "STUDENT");
+            response.put("highest_degree", "High School");
+            response.put("grad_year", 2024);
+            response.put("annual_family_income", 100000.00); 
+            response.put("category", "OBC");
+            response.put("bank_account", "XXXX-XXXX-2222");
         } else {
             response.put("full_name", "Unknown Citizen");
             response.put("dob", "1990-01-01");
