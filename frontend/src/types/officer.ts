@@ -9,6 +9,7 @@ export interface OfficerReviewTaskResponse {
   candidateGroup: string;
   assignee: string | null;
   status: string;
+  verificationData?: unknown;
 }
 
 export interface OfficerDecisionRequest {
@@ -24,4 +25,5 @@ export interface OfficerDecisionResponse {
   reason?: string;
   timestamp: string;
   status: string;
+  verificationData?: unknown;
 }

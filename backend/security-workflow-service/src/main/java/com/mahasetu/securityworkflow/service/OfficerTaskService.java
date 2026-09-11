@@ -14,6 +14,7 @@ import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.task.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,12 +38,14 @@ public class OfficerTaskService {
     private final HistoryService historyService;
     private final AuditService auditService;
     private final ConsentPolicyService consentPolicyService;
+    private final ObjectMapper objectMapper;
 
-    public OfficerTaskService(TaskService taskService, HistoryService historyService, AuditService auditService, ConsentPolicyService consentPolicyService) {
+    public OfficerTaskService(TaskService taskService, HistoryService historyService, AuditService auditService, ConsentPolicyService consentPolicyService, ObjectMapper objectMapper) {
         this.taskService = taskService;
         this.historyService = historyService;
         this.auditService = auditService;
         this.consentPolicyService = consentPolicyService;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -411,7 +414,7 @@ public class OfficerTaskService {
         String citizenId = (String) variables.get("citizenId");
         String serviceCode = (String) variables.get("serviceCode");
 
-        return new OfficerReviewTaskResponse(
+        OfficerReviewTaskResponse response = new OfficerReviewTaskResponse(
                 task.getId(),
                 task.getName(),
                 applicationId,
@@ -423,5 +426,19 @@ public class OfficerTaskService {
                 task.getAssignee(),
                 "PENDING_REVIEW"
         );
+        
+        Object verificationResultVar = variables.get("verificationResult");
+        if (verificationResultVar instanceof String) {
+            try {
+                Object verificationData = objectMapper.readValue((String) verificationResultVar, Object.class);
+                response.setVerificationData(verificationData);
+            } catch (Exception e) {
+                log.warn("Failed to parse verificationResult JSON for task {}", task.getId());
+            }
+        } else if (verificationResultVar != null) {
+            response.setVerificationData(verificationResultVar);
+        }
+
+        return response;
     }
 }

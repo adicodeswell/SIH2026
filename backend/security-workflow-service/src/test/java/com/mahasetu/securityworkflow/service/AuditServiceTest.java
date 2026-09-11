@@ -73,7 +73,7 @@ class AuditServiceTest {
         when(auditLogRepository.save(any(AuditLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         UUID consentId = UUID.randomUUID();
-        AuditLog result = auditService.recordConsentGranted("CIT-123", consentId, "DEPT-1", "education", "verification");
+        AuditLog result = auditService.recordConsentGranted("CIT-123", consentId, "DEPT-1", "education", "verification", null);
 
         assertNotNull(result);
         assertEquals("CIT-123", result.getActorId());
@@ -90,7 +90,7 @@ class AuditServiceTest {
         when(auditLogRepository.save(any(AuditLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         UUID consentId = UUID.randomUUID();
-        AuditLog result = auditService.recordConsentRevoked("CIT-123", consentId);
+        AuditLog result = auditService.recordConsentRevoked("CIT-123", consentId, null);
 
         assertNotNull(result);
         assertEquals("CIT-123", result.getActorId());

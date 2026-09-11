@@ -19,6 +19,7 @@ public class OfficerReviewTaskResponse {
     private String candidateGroup;
     private String assignee;
     private String status;
+    private Object verificationData;
 
     public OfficerReviewTaskResponse() {
     }
@@ -116,5 +117,13 @@ public class OfficerReviewTaskResponse {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public Object getVerificationData() {
+        return verificationData;
+    }
+
+    public void setVerificationData(Object verificationData) {
+        this.verificationData = verificationData;
     }
 }

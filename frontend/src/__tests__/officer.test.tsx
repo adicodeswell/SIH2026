@@ -86,7 +86,7 @@ describe('Officer Workflow', () => {
       renderDashboard();
       
       await waitFor(() => {
-        expect(screen.getByText('Inbox Zero')).toBeInTheDocument();
+        expect(screen.getByText('Inbox Clear')).toBeInTheDocument();
       });
     });
 
@@ -119,12 +119,52 @@ describe('Officer Workflow', () => {
       } as any);
     });
 
+    
+    it('displays task verification data when application verification data is missing', async () => {
+      vi.mocked(officerServiceApi.getReviewTask).mockResolvedValue({
+        ...mockTasks[0],
+        verificationData: { overallStatus: "VERIFIED_FROM_TASK" }
+      });
+      vi.mocked(applicationServiceApi.getApplicationById).mockResolvedValue({
+        applicationNumber: 'MH-100',
+        status: 'PENDING_OFFICER_REVIEW',
+        citizenId: 'c-1',
+        serviceCode: 'TEST',
+        submittedAt: '2024-03-01',
+      } as any);
+
+      renderDetails();
+      
+      await waitFor(() => {
+        expect(screen.getByText(/VERIFIED_FROM_TASK/i)).toBeInTheDocument();
+      });
+    });
+
+    it('displays no verification payload message when both are missing', async () => {
+      vi.mocked(officerServiceApi.getReviewTask).mockResolvedValue({
+        ...mockTasks[0]
+      });
+      vi.mocked(applicationServiceApi.getApplicationById).mockResolvedValue({
+        applicationNumber: 'MH-100',
+        status: 'PENDING_OFFICER_REVIEW',
+        citizenId: 'c-1',
+        serviceCode: 'TEST',
+        submittedAt: '2024-03-01',
+      } as any);
+
+      renderDetails();
+      
+      await waitFor(() => {
+        expect(screen.getByText(/No verification payload available/i)).toBeInTheDocument();
+      });
+    });
+
     it('renders review details successfully', async () => {
       renderDetails();
       
       await waitFor(() => {
-        expect(screen.getByText(/Application Review: MH-100/i)).toBeInTheDocument();
-        expect(screen.getByText(/Source System Verified/i)).toBeInTheDocument();
+        expect(screen.getByText(/Dossier Review: MH-100/i)).toBeInTheDocument();
+        expect(screen.getByText(/Authoritative State System Verified/i)).toBeInTheDocument();
       });
     });
 
@@ -132,12 +172,12 @@ describe('Officer Workflow', () => {
       renderDetails();
       
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /Claim Task/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Claim File for Review/i })).toBeInTheDocument();
       });
       
       vi.mocked(officerServiceApi.claimTask).mockResolvedValue({ ...mockTasks[0], assignee: 'officer1' });
       
-      fireEvent.click(screen.getByRole('button', { name: /Claim Task/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Claim File for Review/i }));
       
       await waitFor(() => {
         expect(officerServiceApi.claimTask).toHaveBeenCalledWith('task-1');
@@ -157,12 +197,12 @@ describe('Officer Workflow', () => {
       fireEvent.click(screen.getByText(/Approve/i));
       
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /Submit Final Decision/i })).not.toBeDisabled();
+        expect(screen.getByRole('button', { name: /Submit Statutory Resolution/i })).not.toBeDisabled();
       });
       
       vi.mocked(officerServiceApi.submitDecision).mockResolvedValue({} as any);
       
-      fireEvent.click(screen.getByRole('button', { name: /Submit Final Decision/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Submit Statutory Resolution/i }));
       
       await waitFor(() => {
         expect(officerServiceApi.submitDecision).toHaveBeenCalledWith('task-1', { decision: 'APPROVE', reason: '' });
