@@ -27,7 +27,7 @@ import { format } from 'date-fns';
 export default function CitizenDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const username = user?.username || 'CITIZEN';
+  const username = user?.username?.toUpperCase() || 'CITIZEN';
   const displayName = user?.name || username;
 
   const { data: myApps, isLoading: loadingApps } = useQuery({

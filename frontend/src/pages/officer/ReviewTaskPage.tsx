@@ -76,7 +76,7 @@ export function OfficerReviewTaskPage() {
     onError: (err: any) => toast.error(err?.message || 'Failed to submit decision'),
   });
 
-  const isClaimedByMe = task?.assignee === user?.username;
+  const isClaimedByMe = task?.assignee === user?.username?.toUpperCase();
   const isClaimedByOther = task?.assignee && !isClaimedByMe;
 
   const handleSubmitDecision = () => {

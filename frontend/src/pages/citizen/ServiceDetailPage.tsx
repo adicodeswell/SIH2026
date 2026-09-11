@@ -28,7 +28,7 @@ import type { ApplicationResponse } from '@/types/service';
 export const ServiceDetailPage: React.FC = () => {
   const { serviceId } = useParams<{ serviceId: string }>();
   const { user } = useAuth();
-  const citizenId = user?.username || '';
+  const citizenId = user?.username?.toUpperCase() || '';
 
   const [applyMode, setApplyMode] = useState(false);
   const [createdApplication, setCreatedApplication] = useState<ApplicationResponse | null>(null);

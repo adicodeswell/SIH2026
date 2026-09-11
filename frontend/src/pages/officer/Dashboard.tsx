@@ -30,7 +30,7 @@ export default function OfficerDashboard() {
   });
 
   const myClaimedCount = useMemo(() => {
-    if (!tasks || !user?.username) return 0;
+    if (!tasks || !user?.username?.toUpperCase()) return 0;
     return tasks.filter((t) => t.assignee === user.username).length;
   }, [tasks, user]);
 
@@ -52,7 +52,7 @@ export default function OfficerDashboard() {
               Competent Authority Desk
             </span>
             <span className="text-xs text-slate-500 font-medium">
-              Officer: <strong className="text-slate-800">{user?.name || user?.username}</strong>
+              Officer: <strong className="text-slate-800">{user?.name || user?.username?.toUpperCase()}</strong>
             </span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
@@ -222,10 +222,10 @@ export default function OfficerDashboard() {
                         <td className="px-4 py-3 whitespace-nowrap">
                           {task.assignee ? (
                             <Badge
-                              variant={task.assignee === user?.username ? 'active' : 'secondary'}
+                              variant={task.assignee === user?.username?.toUpperCase() ? 'active' : 'secondary'}
                               className="text-[10px]"
                             >
-                              {task.assignee === user?.username ? 'Claimed by You' : `Claimed: ${task.assignee}`}
+                              {task.assignee === user?.username?.toUpperCase() ? 'Claimed by You' : `Claimed: ${task.assignee}`}
                             </Badge>
                           ) : (
                             <Badge variant="pending" className="text-[10px]">
