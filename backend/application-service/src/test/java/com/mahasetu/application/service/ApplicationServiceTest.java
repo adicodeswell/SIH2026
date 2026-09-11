@@ -62,7 +62,7 @@ public class ApplicationServiceTest {
         existingApp.setApplicationNumber("MH-2026-000001");
         existingApp.setCitizen(citizen);
         existingApp.setService(serviceEntity);
-        existingApp.setStatus(ApplicationStatus.SUBMITTED);
+        existingApp.setStatus(ApplicationStatus.DRAFT);
     }
 
     @Test
@@ -80,9 +80,9 @@ public class ApplicationServiceTest {
 
         assertNotNull(res);
         assertEquals("MH-2026-000001", res.getApplicationNumber());
-        assertEquals(ApplicationStatus.SUBMITTED, res.getStatus());
-        verify(workflowClient).startWorkflow("MH-2026-000001", "application-orchestration");
-        verify(eventRepository, times(2)).save(any(ApplicationEvent.class));
+        assertEquals(ApplicationStatus.DRAFT, res.getStatus());
+        
+        verify(eventRepository, times(1)).save(any(ApplicationEvent.class));
     }
 
     @Test
@@ -99,8 +99,8 @@ public class ApplicationServiceTest {
 
         ApplicationResponse res = applicationService.createApplication(req);
 
-        assertEquals(ApplicationStatus.FAILED, res.getStatus());
-        verify(eventRepository, times(2)).save(any(ApplicationEvent.class));
+        assertEquals(ApplicationStatus.DRAFT, res.getStatus());
+        verify(eventRepository, times(1)).save(any(ApplicationEvent.class));
     }
     
     @Test

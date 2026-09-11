@@ -132,8 +132,16 @@ public class ApplicationE2EHttpTest {
                 .claim("realm_access", Map.of("roles", List.of("SERVICE")))
                 .build();
 
+        
         when(jwtDecoder.decode("citizen-token")).thenReturn(citizenJwt);
         when(jwtDecoder.decode("service-token")).thenReturn(serviceJwt);
+
+        workflowMockServer.stubFor(get(urlMatching("/internal/v1/consents/application/.*"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"hasConsent\":true}")));
+
 
         // 2. Stub WireMock to accept the workflow-start request
         workflowMockServer.stubFor(post(urlEqualTo("/internal/v1/workflows"))
@@ -160,6 +168,14 @@ public class ApplicationE2EHttpTest {
 
         String appNumber = new ObjectMapper().readTree(createRes.getBody()).get("applicationNumber").asText();
         assertNotNull(appNumber, "Application number should not be null");
+
+        
+        // 3.5 Submit Application
+        ResponseEntity<String> submitRes = restTemplate.exchange(
+                "/api/v1/applications/" + appNumber + "/submit", HttpMethod.POST,
+                new HttpEntity<>(null, headers), String.class);
+        assertEquals(HttpStatus.OK, submitRes.getStatusCode(),
+                "Application submit should return 200 OK.");
 
         // 4. Verify Application Service sent the workflow-start HTTP request to WireMock
         workflowMockServer.verify(1, postRequestedFor(urlEqualTo("/internal/v1/workflows"))
