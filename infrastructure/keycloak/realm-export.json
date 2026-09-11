@@ -1,9 +1,11 @@
 {
   "id": "mahasetu",
   "realm": "mahasetu",
+  "displayName": "EKIKRIT",
+  "displayNameHtml": "EKIKRIT",
   "enabled": true,
   "sslRequired": "none",
-  "registrationAllowed": true,
+  "registrationAllowed": false,
   "roles": {
     "realm": [
       {
