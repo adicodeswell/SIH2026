@@ -1,9 +1,11 @@
 {
   "id": "mahasetu",
   "realm": "mahasetu",
+  "displayName": "EKIKRIT",
+  "displayNameHtml": "EKIKRIT",
   "enabled": true,
   "sslRequired": "none",
-  "registrationAllowed": true,
+  "registrationAllowed": false,
   "roles": {
     "realm": [
       {
@@ -135,6 +137,92 @@
       "attributes": {
         "department": [
           "DEPT-SKILLS"
+        ]
+      }
+    },
+    {
+      "id": "161b7994-4360-4d6f-8cd1-c325074da9b5",
+      "createdTimestamp": 1789143829901,
+      "username": "MH1002",
+      "enabled": true,
+      "email": "adicodeswell@gmail.com",
+      "firstName": "Aditya",
+      "lastName": "Jha",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "aditya123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "CITIZEN"
+      ]
+    },
+    {
+      "id": "40f62e70-5532-48cd-8f7c-456d996acef7",
+      "createdTimestamp": 1789143829901,
+      "username": "MH1003",
+      "enabled": true,
+      "email": "ankitmayank829@gmail.com",
+      "firstName": "Ankit",
+      "lastName": "Kumar",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "ankit123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "CITIZEN"
+      ]
+    },
+    {
+      "id": "b10cf7ac-96fe-4f72-ac2f-81fb09e947de",
+      "createdTimestamp": 1789143829901,
+      "username": "officer_edu",
+      "enabled": true,
+      "email": "edu_officer@mahasetu.gov.in",
+      "firstName": "Education",
+      "lastName": "Officer",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "officer123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "OFFICER"
+      ],
+      "attributes": {
+        "department": [
+          "DEPT-EDU"
+        ]
+      }
+    },
+    {
+      "id": "f589f35e-649f-49f3-a2ac-053788d278cf",
+      "createdTimestamp": 1789144126895,
+      "username": "officer_health",
+      "enabled": true,
+      "email": "health_officer@mahasetu.gov.in",
+      "firstName": "Health",
+      "lastName": "Officer",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "officer123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "OFFICER"
+      ],
+      "attributes": {
+        "department": [
+          "DEPT_HLTH"
         ]
       }
     }
