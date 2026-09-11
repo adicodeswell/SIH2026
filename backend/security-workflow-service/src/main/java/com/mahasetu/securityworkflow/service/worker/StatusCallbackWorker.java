@@ -32,6 +32,8 @@ public class StatusCallbackWorker implements JavaDelegate {
         String workflowStatus = (String) execution.getVariable("workflowStatus");
         String failureReason = (String) execution.getVariable("failureReason");
         String officerId = (String) execution.getVariable("officerId");
+        String officerDecision = (String) execution.getVariable("officerDecision");
+        String officerDecisionReason = (String) execution.getVariable("officerDecisionReason");
         String processInstanceId = execution.getProcessInstanceId();
         
         String verificationResultJson = (String) execution.getVariable("verificationResult");
@@ -46,6 +48,9 @@ public class StatusCallbackWorker implements JavaDelegate {
                 failureReason,
                 officerId
         );
+        callback.setOfficerDecision(officerDecision);
+        callback.setOfficerDecisionReason(officerDecisionReason);
+
         
         if (verificationResultJson != null) {
             VerificationResult fullResult = objectMapper.readValue(verificationResultJson, VerificationResult.class);

@@ -134,6 +134,10 @@ public class ApplicationService {
                 dto.setTitle("Verification Failed");
                 dto.setDescription("Application processing encountered an issue.");
                 dto.setActorType("SYSTEM");
+            } else if ("WORKFLOW_APPROVED".equals(event.getEventType()) || 
+                       "WORKFLOW_REJECTED".equals(event.getEventType()) || 
+                       "WORKFLOW_PENDING_REVIEW".equals(event.getEventType())) {
+                continue; // Skip these as they are covered by AuditLog (OFFICER_REVIEW, OFFICER_CLAIM, etc)
             } else {
                 dto.setCategory("GENERAL");
                 dto.setTitle(event.getEventType());
@@ -176,15 +180,37 @@ public class ApplicationService {
                         dto.setActorType("CITIZEN");
                     } else if ("OFFICER_REVIEW".equals(action)) {
                         dto.setCategory("OFFICER_REVIEW");
+                        String purpose = (String) log.get("purpose");
                         String meta = (String) log.get("metadata");
-                        if (meta != null && meta.contains("decision=APPROVE")) {
+                        
+                        String reason = null;
+                        if (meta != null && !meta.trim().isEmpty()) {
+                            try {
+                                java.util.Map<String, Object> metaMap = objectMapper.readValue(meta, new com.fasterxml.jackson.core.type.TypeReference<java.util.Map<String, Object>>() {});
+                                if (metaMap.containsKey("reason")) {
+                                    reason = (String) metaMap.get("reason");
+                                }
+                            } catch (Exception e) {
+                                // Ignore parse error, fallback to default description
+                            }
+                        }
+
+                        if ("APPROVE".equals(purpose)) {
                             dto.setTitle("Application Approved");
-                            dto.setDescription("Application approved by the reviewing officer.");
                             dto.setStatus("APPROVED");
-                        } else if (meta != null && meta.contains("decision=REJECT")) {
+                            if (reason != null && !reason.trim().isEmpty()) {
+                                dto.setDescription(reason);
+                            } else {
+                                dto.setDescription("Application approved by the reviewing officer.");
+                            }
+                        } else if ("REJECT".equals(purpose)) {
                             dto.setTitle("Application Rejected");
-                            dto.setDescription("Application rejected by the reviewing officer.");
                             dto.setStatus("REJECTED");
+                            if (reason != null && !reason.trim().isEmpty()) {
+                                dto.setDescription(reason);
+                            } else {
+                                dto.setDescription("Application rejected by the reviewing officer.");
+                            }
                         } else {
                             dto.setTitle("Officer Review");
                             dto.setDescription("Officer review completed.");
@@ -466,6 +492,9 @@ public class ApplicationService {
     }
 
     private String workflowEventDescription(WorkflowStatusCallbackRequest request) {
+        if (request.getOfficerDecisionReason() != null && !request.getOfficerDecisionReason().isBlank()) {
+            return request.getOfficerDecisionReason();
+        }
         if (request.getFailureReason() != null && !request.getFailureReason().isBlank()) {
             return request.getFailureReason();
         }

@@ -12,6 +12,15 @@ public class WorkflowStatusCallback {
     private String failureReason;
     private String officerId;
     private Object verificationData;
+    private String officerDecision;
+    private String officerDecisionReason;
+
+    public String getOfficerDecision() { return officerDecision; }
+    public void setOfficerDecision(String officerDecision) { this.officerDecision = officerDecision; }
+
+    public String getOfficerDecisionReason() { return officerDecisionReason; }
+    public void setOfficerDecisionReason(String officerDecisionReason) { this.officerDecisionReason = officerDecisionReason; }
+
 
     public Object getVerificationData() { return verificationData; }
     public void setVerificationData(Object verificationData) { this.verificationData = verificationData; }
