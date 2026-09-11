@@ -13,6 +13,7 @@ import org.camunda.bpm.engine.history.HistoricTaskInstanceQuery;
 import org.camunda.bpm.engine.task.Task;
 import org.camunda.bpm.engine.task.TaskQuery;
 import org.junit.jupiter.api.BeforeEach;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -60,7 +61,7 @@ class OfficerTaskServiceTest {
         );
         lenient().when(consentPolicyService.getPolicy(any())).thenReturn(policy);
 
-        officerTaskService = new OfficerTaskService(taskService, historyService, auditService, consentPolicyService);
+        officerTaskService = new OfficerTaskService(taskService, historyService, auditService, consentPolicyService, new ObjectMapper());
     }
 
     @Test

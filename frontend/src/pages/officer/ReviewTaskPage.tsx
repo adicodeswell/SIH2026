@@ -129,7 +129,8 @@ export function OfficerReviewTaskPage() {
     }
   };
 
-  const parsedVerification = parseVerificationData(application?.verificationData);
+  const rawVerification = task?.verificationData ?? application?.verificationData;
+  const parsedVerification = parseVerificationData(rawVerification);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">

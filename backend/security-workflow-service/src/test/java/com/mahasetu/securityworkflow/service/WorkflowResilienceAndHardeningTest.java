@@ -128,8 +128,7 @@ class WorkflowResilienceAndHardeningTest {
 
         assertNotNull(saved);
         assertEquals("GRANTED", saved.getStatus());
-        verify(auditService).recordConsentGranted(eq("CIT-USER1"), eq(saved.getId()),
-                eq("DEPT-SKILLS"), eq("SKILLS"), eq("job_verification"));
+        verify(auditService).recordConsentGranted(eq("CIT-USER1"), eq(saved.getId()), eq("DEPT-SKILLS"), eq("SKILLS"), eq("job_verification"), org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test
@@ -145,11 +144,11 @@ class WorkflowResilienceAndHardeningTest {
 
         // First revoke
         consentService.revokeConsent("CIT-USER1", consentId);
-        verify(auditService, times(1)).recordConsentRevoked("CIT-USER1", consentId);
+        verify(auditService, times(1)).recordConsentRevoked("CIT-USER1", consentId, null);
 
         // Second revoke -> idempotent, no additional audit logging
         consent.setStatus("REVOKED");
         consentService.revokeConsent("CIT-USER1", consentId);
-        verify(auditService, times(1)).recordConsentRevoked("CIT-USER1", consentId); // still 1
+        verify(auditService, times(1)).recordConsentRevoked("CIT-USER1", consentId, null); // still 1
     }
 }
